@@ -43,7 +43,7 @@ function Index() {
   };
 
   const setDraft = (catId: string, patch: Partial<{ label: string; value: string; emoji: string }>) =>
-    setDrafts((d) => ({ ...d, [catId]: { label: "", value: "", emoji: "", ...(d[catId] ?? {}), ...patch } }));
+    setDrafts((d) => ({ ...d, [catId]: { label: "", value: "", emoji: "", ...(d[catId] ?? {}), ...patch } as { label: string; value: string; emoji: string } }));
 
   const submitDraft = (catId: string) => {
     const d = drafts[catId];
