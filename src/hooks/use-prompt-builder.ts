@@ -3,9 +3,13 @@ import { CATEGORIES, type Token } from "@/lib/prompt-data";
 
 type Selections = Record<string, string[]>;
 type Favorite = { id: string; prompt: string; selections: Selections; createdAt: number };
+type CustomTokens = Record<string, Token[]>;
+type RemovedTokens = Record<string, string[]>;
 
 const STORAGE_KEY = "promptdeck:selections";
 const FAV_KEY = "promptdeck:favorites";
+const CUSTOM_KEY = "promptdeck:custom";
+const REMOVED_KEY = "promptdeck:removed";
 
 const haptic = (ms = 8) => {
   if (typeof navigator !== "undefined" && "vibrate" in navigator) {
@@ -13,9 +17,13 @@ const haptic = (ms = 8) => {
   }
 };
 
+const EMOJI_POOL = ["✨","🌟","⭐","💫","🔮","🎭","🌈","🔥","❄️","🌊","🍄","🪐","🌙","☄️","🎨","🖌️","📐","🧭","🗝️","🕯️"];
+
 export function usePromptBuilder() {
   const [selections, setSelections] = useState<Selections>({});
   const [favorites, setFavorites] = useState<Favorite[]>([]);
+  const [custom, setCustom] = useState<CustomTokens>({});
+  const [removed, setRemoved] = useState<RemovedTokens>({});
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
@@ -24,17 +32,27 @@ export function usePromptBuilder() {
       if (s) setSelections(JSON.parse(s));
       const f = localStorage.getItem(FAV_KEY);
       if (f) setFavorites(JSON.parse(f));
+      const c = localStorage.getItem(CUSTOM_KEY);
+      if (c) setCustom(JSON.parse(c));
+      const r = localStorage.getItem(REMOVED_KEY);
+      if (r) setRemoved(JSON.parse(r));
     } catch { /* ignore */ }
     setHydrated(true);
   }, []);
 
-  useEffect(() => {
-    if (hydrated) localStorage.setItem(STORAGE_KEY, JSON.stringify(selections));
-  }, [selections, hydrated]);
+  useEffect(() => { if (hydrated) localStorage.setItem(STORAGE_KEY, JSON.stringify(selections)); }, [selections, hydrated]);
+  useEffect(() => { if (hydrated) localStorage.setItem(FAV_KEY, JSON.stringify(favorites)); }, [favorites, hydrated]);
+  useEffect(() => { if (hydrated) localStorage.setItem(CUSTOM_KEY, JSON.stringify(custom)); }, [custom, hydrated]);
+  useEffect(() => { if (hydrated) localStorage.setItem(REMOVED_KEY, JSON.stringify(removed)); }, [removed, hydrated]);
 
-  useEffect(() => {
-    if (hydrated) localStorage.setItem(FAV_KEY, JSON.stringify(favorites));
-  }, [favorites, hydrated]);
+  const tokensFor = useCallback((categoryId: string): Token[] => {
+    const cat = CATEGORIES.find((c) => c.id === categoryId);
+    const base = cat ? cat.tokens : [];
+    const rem = new Set(removed[categoryId] ?? []);
+    const kept = base.filter((t) => !rem.has(t.id));
+    const extras = custom[categoryId] ?? [];
+    return [...kept, ...extras];
+  }, [custom, removed]);
 
   const toggle = useCallback((categoryId: string, tokenId: string) => {
     haptic(10);
@@ -43,6 +61,49 @@ export function usePromptBuilder() {
       const next = cur.includes(tokenId) ? cur.filter((x) => x !== tokenId) : [...cur, tokenId];
       return { ...prev, [categoryId]: next };
     });
+  }, []);
+
+  const removeToken = useCallback((categoryId: string, tokenId: string) => {
+    haptic(12);
+    // If it's a custom token, drop from custom; otherwise mark preset as removed.
+    setCustom((prev) => {
+      const list = prev[categoryId] ?? [];
+      if (list.some((t) => t.id === tokenId)) {
+        return { ...prev, [categoryId]: list.filter((t) => t.id !== tokenId) };
+      }
+      return prev;
+    });
+    setRemoved((prev) => {
+      const cat = CATEGORIES.find((c) => c.id === categoryId);
+      const isPreset = cat?.tokens.some((t) => t.id === tokenId);
+      if (!isPreset) return prev;
+      const cur = prev[categoryId] ?? [];
+      if (cur.includes(tokenId)) return prev;
+      return { ...prev, [categoryId]: [...cur, tokenId] };
+    });
+    setSelections((prev) => {
+      const cur = prev[categoryId] ?? [];
+      if (!cur.includes(tokenId)) return prev;
+      return { ...prev, [categoryId]: cur.filter((x) => x !== tokenId) };
+    });
+  }, []);
+
+  const addToken = useCallback((categoryId: string, label: string, value?: string, emoji?: string) => {
+    const trimmed = label.trim();
+    if (!trimmed) return;
+    haptic(15);
+    const token: Token = {
+      id: `custom-${categoryId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      label: trimmed.slice(0, 40),
+      value: (value?.trim() || trimmed).slice(0, 200),
+      emoji: emoji?.trim() || EMOJI_POOL[Math.floor(Math.random() * EMOJI_POOL.length)],
+    };
+    setCustom((prev) => ({ ...prev, [categoryId]: [...(prev[categoryId] ?? []), token] }));
+  }, []);
+
+  const restoreCategory = useCallback((categoryId: string) => {
+    haptic(15);
+    setRemoved((prev) => ({ ...prev, [categoryId]: [] }));
   }, []);
 
   const clearAll = useCallback(() => {
@@ -54,34 +115,38 @@ export function usePromptBuilder() {
     haptic(25);
     const next: Selections = {};
     for (const cat of CATEGORIES) {
-      const pick = cat.tokens[Math.floor(Math.random() * cat.tokens.length)];
+      const tokens = tokensFor(cat.id);
+      if (!tokens.length) continue;
+      const pick = tokens[Math.floor(Math.random() * tokens.length)];
       next[cat.id] = [pick.id];
     }
     setSelections(next);
-  }, []);
+  }, [tokensFor]);
 
   const prompt = useMemo(() => {
     const parts: string[] = [];
     for (const cat of CATEGORIES) {
       const ids = selections[cat.id] ?? [];
+      const tokens = tokensFor(cat.id);
       for (const id of ids) {
-        const t = cat.tokens.find((x) => x.id === id);
+        const t = tokens.find((x) => x.id === id);
         if (t) parts.push(t.value);
       }
     }
     return parts.join(", ");
-  }, [selections]);
+  }, [selections, tokensFor]);
 
   const selectedTokens = useMemo(() => {
     const out: { category: string; token: Token }[] = [];
     for (const cat of CATEGORIES) {
+      const tokens = tokensFor(cat.id);
       for (const id of selections[cat.id] ?? []) {
-        const t = cat.tokens.find((x) => x.id === id);
+        const t = tokens.find((x) => x.id === id);
         if (t) out.push({ category: cat.name, token: t });
       }
     }
     return out;
-  }, [selections]);
+  }, [selections, tokensFor]);
 
   const saveFavorite = useCallback(() => {
     if (!prompt) return;
@@ -112,5 +177,10 @@ export function usePromptBuilder() {
     saveFavorite,
     loadFavorite,
     removeFavorite,
+    tokensFor,
+    addToken,
+    removeToken,
+    restoreCategory,
+    removed,
   };
 }
