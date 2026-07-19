@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { ChevronDown, Copy, Check, Sparkles, Trash2, Heart, X, Wand2 } from "lucide-react";
+import { ChevronDown, Copy, Check, Sparkles, Trash2, Heart, X, Wand2, Pencil, Plus, RotateCcw } from "lucide-react";
 import { CATEGORIES } from "@/lib/prompt-data";
 import { usePromptBuilder } from "@/hooks/use-prompt-builder";
 import { cn } from "@/lib/utils";
@@ -24,6 +24,8 @@ function Index() {
   );
   const [copied, setCopied] = useState(false);
   const [showFavs, setShowFavs] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [drafts, setDrafts] = useState<Record<string, { label: string; value: string; emoji: string }>>({});
 
   useEffect(() => {
     if (!copied) return;
@@ -38,6 +40,16 @@ function Index() {
       setCopied(true);
       if ("vibrate" in navigator) navigator.vibrate?.([8, 40, 8]);
     } catch { /* ignore */ }
+  };
+
+  const setDraft = (catId: string, patch: Partial<{ label: string; value: string; emoji: string }>) =>
+    setDrafts((d) => ({ ...d, [catId]: { label: "", value: "", emoji: "", ...(d[catId] ?? {}), ...patch } }));
+
+  const submitDraft = (catId: string) => {
+    const d = drafts[catId];
+    if (!d?.label.trim()) return;
+    b.addToken(catId, d.label, d.value, d.emoji);
+    setDrafts((prev) => ({ ...prev, [catId]: { label: "", value: "", emoji: "" } }));
   };
 
   const totalSelected = b.selectedTokens.length;
@@ -56,19 +68,39 @@ function Index() {
               <p className="text-[11px] uppercase tracking-widest text-muted-foreground">the lego set for ai art</p>
             </div>
           </div>
-          <button
-            onClick={() => setShowFavs(true)}
-            className="relative grid h-10 w-10 place-items-center rounded-xl border border-border bg-card/60 transition hover:border-primary/60 hover:text-primary active:scale-95"
-            aria-label="Favorites"
-          >
-            <Heart className="h-4.5 w-4.5" />
-            {b.favorites.length > 0 && (
-              <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
-                {b.favorites.length}
-              </span>
-            )}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setEditMode((v) => !v)}
+              className={cn(
+                "flex h-10 items-center gap-1.5 rounded-xl border px-3 text-xs font-semibold transition active:scale-95",
+                editMode
+                  ? "border-primary bg-primary/15 text-primary shadow-neon"
+                  : "border-border bg-card/60 text-muted-foreground hover:border-primary/60 hover:text-primary",
+              )}
+              aria-label="Edit tokens"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              {editMode ? "Done" : "Edit"}
+            </button>
+            <button
+              onClick={() => setShowFavs(true)}
+              className="relative grid h-10 w-10 place-items-center rounded-xl border border-border bg-card/60 transition hover:border-primary/60 hover:text-primary active:scale-95"
+              aria-label="Favorites"
+            >
+              <Heart className="h-4.5 w-4.5" />
+              {b.favorites.length > 0 && (
+                <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                  {b.favorites.length}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
+        {editMode && (
+          <div className="border-t border-primary/30 bg-primary/5 px-4 py-2 text-center text-[11px] font-medium text-primary">
+            Edit mode · tap × to remove, or add your own tokens below
+          </div>
+        )}
       </header>
 
       {/* Action row */}
@@ -98,7 +130,10 @@ function Index() {
       <main className="mx-auto max-w-3xl space-y-3 px-4 pt-5">
         {CATEGORIES.map((cat) => {
           const selectedIds = b.selections[cat.id] ?? [];
-          const isOpen = open[cat.id];
+          const isOpen = open[cat.id] || editMode;
+          const tokens = b.tokensFor(cat.id);
+          const removedCount = (b.removed[cat.id] ?? []).length;
+          const draft = drafts[cat.id] ?? { label: "", value: "", emoji: "" };
           return (
             <section
               key={cat.id}
@@ -136,26 +171,85 @@ function Index() {
               >
                 <div className="overflow-hidden">
                   <div className="flex flex-wrap gap-2 px-4 pb-4">
-                    {cat.tokens.map((t) => {
+                    {tokens.map((t) => {
                       const active = selectedIds.includes(t.id);
                       return (
-                        <button
-                          key={t.id}
-                          onClick={() => b.toggle(cat.id, t.id)}
-                          className={cn(
-                            "group flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm font-medium transition-all duration-200 active:scale-95",
-                            active
-                              ? "border-primary bg-primary/15 text-primary shadow-neon"
-                              : "border-border bg-background/40 text-foreground/80 hover:border-primary/40 hover:text-foreground",
+                        <div key={t.id} className="relative">
+                          <button
+                            onClick={() => (editMode ? b.removeToken(cat.id, t.id) : b.toggle(cat.id, t.id))}
+                            className={cn(
+                              "group flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm font-medium transition-all duration-200 active:scale-95",
+                              editMode
+                                ? "border-destructive/40 bg-destructive/5 text-foreground/80 hover:border-destructive hover:bg-destructive/15 hover:text-destructive pr-8"
+                                : active
+                                  ? "border-primary bg-primary/15 text-primary shadow-neon"
+                                  : "border-border bg-background/40 text-foreground/80 hover:border-primary/40 hover:text-foreground",
+                            )}
+                          >
+                            <span className="text-base leading-none">{t.emoji}</span>
+                            <span>{t.label}</span>
+                            {!editMode && active && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
+                          </button>
+                          {editMode && (
+                            <span className="pointer-events-none absolute right-2 top-1/2 grid h-4 w-4 -translate-y-1/2 place-items-center rounded-full bg-destructive/80 text-background">
+                              <X className="h-3 w-3" strokeWidth={3} />
+                            </span>
                           )}
-                        >
-                          <span className="text-base leading-none">{t.emoji}</span>
-                          <span>{t.label}</span>
-                          {active && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
-                        </button>
+                        </div>
                       );
                     })}
+                    {tokens.length === 0 && !editMode && (
+                      <p className="text-xs text-muted-foreground">All tokens removed. Enable Edit to add your own.</p>
+                    )}
                   </div>
+
+                  {editMode && (
+                    <div className="mx-4 mb-4 space-y-2 rounded-2xl border border-dashed border-primary/40 bg-primary/5 p-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-primary">Add token</span>
+                        {removedCount > 0 && (
+                          <button
+                            onClick={() => b.restoreCategory(cat.id)}
+                            className="flex items-center gap-1 rounded-full border border-border bg-background/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground transition hover:text-foreground"
+                          >
+                            <RotateCcw className="h-2.5 w-2.5" />
+                            Restore {removedCount}
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <input
+                          value={draft.emoji}
+                          onChange={(e) => setDraft(cat.id, { emoji: e.target.value })}
+                          placeholder="✨"
+                          maxLength={2}
+                          className="w-12 rounded-xl border border-border bg-background/60 px-2 py-2 text-center text-base outline-none focus:border-primary"
+                        />
+                        <input
+                          value={draft.label}
+                          onChange={(e) => setDraft(cat.id, { label: e.target.value })}
+                          placeholder="Label (e.g. Noir)"
+                          className="flex-1 rounded-xl border border-border bg-background/60 px-3 py-2 text-sm outline-none focus:border-primary"
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <input
+                          value={draft.value}
+                          onChange={(e) => setDraft(cat.id, { value: e.target.value })}
+                          onKeyDown={(e) => { if (e.key === "Enter") submitDraft(cat.id); }}
+                          placeholder="Prompt text (optional — defaults to label)"
+                          className="flex-1 rounded-xl border border-border bg-background/60 px-3 py-2 text-sm outline-none focus:border-primary"
+                        />
+                        <button
+                          onClick={() => submitDraft(cat.id)}
+                          disabled={!draft.label.trim()}
+                          className="flex items-center gap-1 rounded-xl bg-primary px-3 py-2 text-xs font-bold text-primary-foreground transition active:scale-95 disabled:opacity-40"
+                        >
+                          <Plus className="h-3.5 w-3.5" strokeWidth={3} /> Add
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </section>
