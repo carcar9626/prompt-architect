@@ -25,6 +25,7 @@ export function usePromptBuilder() {
   const [favorites, setFavorites] = useState<Favorite[]>([]);
   const [custom, setCustom] = useState<CustomTokens>({});
   const [removed, setRemoved] = useState<RemovedTokens>({});
+  const [order, setOrder] = useState<string[]>(() => CATEGORIES.map((c) => c.id));
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
