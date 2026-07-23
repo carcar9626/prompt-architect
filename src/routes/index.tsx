@@ -26,6 +26,10 @@ function Index() {
   const [showFavs, setShowFavs] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, { label: string; value: string; emoji: string }>>({});
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pressStart = useRef<{ x: number; y: number } | null>(null);
+  const justDragged = useRef(false);
 
   useEffect(() => {
     if (!copied) return;
