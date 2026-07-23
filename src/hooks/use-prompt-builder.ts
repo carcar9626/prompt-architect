@@ -38,6 +38,16 @@ export function usePromptBuilder() {
       if (c) setCustom(JSON.parse(c));
       const r = localStorage.getItem(REMOVED_KEY);
       if (r) setRemoved(JSON.parse(r));
+      const o = localStorage.getItem(ORDER_KEY);
+      if (o) {
+        const parsed: string[] = JSON.parse(o);
+        const known = new Set(CATEGORIES.map((c) => c.id));
+        const merged = [
+          ...parsed.filter((id) => known.has(id)),
+          ...CATEGORIES.map((c) => c.id).filter((id) => !parsed.includes(id)),
+        ];
+        setOrder(merged);
+      }
     } catch { /* ignore */ }
     setHydrated(true);
   }, []);
@@ -46,6 +56,7 @@ export function usePromptBuilder() {
   useEffect(() => { if (hydrated) localStorage.setItem(FAV_KEY, JSON.stringify(favorites)); }, [favorites, hydrated]);
   useEffect(() => { if (hydrated) localStorage.setItem(CUSTOM_KEY, JSON.stringify(custom)); }, [custom, hydrated]);
   useEffect(() => { if (hydrated) localStorage.setItem(REMOVED_KEY, JSON.stringify(removed)); }, [removed, hydrated]);
+  useEffect(() => { if (hydrated) localStorage.setItem(ORDER_KEY, JSON.stringify(order)); }, [order, hydrated]);
 
   const tokensFor = useCallback((categoryId: string): Token[] => {
     const cat = CATEGORIES.find((c) => c.id === categoryId);
