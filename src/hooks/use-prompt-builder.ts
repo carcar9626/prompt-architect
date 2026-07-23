@@ -124,21 +124,48 @@ export function usePromptBuilder() {
     setSelections({});
   }, []);
 
+  const orderedCategories = useMemo(() => {
+    const map = new Map(CATEGORIES.map((c) => [c.id, c]));
+    const seen = new Set<string>();
+    const out: typeof CATEGORIES = [];
+    for (const id of order) {
+      const c = map.get(id);
+      if (c && !seen.has(id)) { out.push(c); seen.add(id); }
+    }
+    for (const c of CATEGORIES) if (!seen.has(c.id)) out.push(c);
+    return out;
+  }, [order]);
+
+  const moveCategory = useCallback((fromId: string, toId: string) => {
+    if (fromId === toId) return;
+    setOrder((prev) => {
+      const ids = prev.length ? [...prev] : CATEGORIES.map((c) => c.id);
+      // ensure both exist
+      for (const c of CATEGORIES) if (!ids.includes(c.id)) ids.push(c.id);
+      const from = ids.indexOf(fromId);
+      const to = ids.indexOf(toId);
+      if (from === -1 || to === -1) return prev;
+      ids.splice(from, 1);
+      ids.splice(to, 0, fromId);
+      return ids;
+    });
+  }, []);
+
   const randomize = useCallback(() => {
     haptic(25);
     const next: Selections = {};
-    for (const cat of CATEGORIES) {
+    for (const cat of orderedCategories) {
       const tokens = tokensFor(cat.id);
       if (!tokens.length) continue;
       const pick = tokens[Math.floor(Math.random() * tokens.length)];
       next[cat.id] = [pick.id];
     }
     setSelections(next);
-  }, [tokensFor]);
+  }, [tokensFor, orderedCategories]);
 
   const prompt = useMemo(() => {
     const parts: string[] = [];
-    for (const cat of CATEGORIES) {
+    for (const cat of orderedCategories) {
       const ids = selections[cat.id] ?? [];
       const tokens = tokensFor(cat.id);
       for (const id of ids) {
@@ -147,11 +174,11 @@ export function usePromptBuilder() {
       }
     }
     return parts.join(", ");
-  }, [selections, tokensFor]);
+  }, [selections, tokensFor, orderedCategories]);
 
   const selectedTokens = useMemo(() => {
     const out: { category: string; token: Token }[] = [];
-    for (const cat of CATEGORIES) {
+    for (const cat of orderedCategories) {
       const tokens = tokensFor(cat.id);
       for (const id of selections[cat.id] ?? []) {
         const t = tokens.find((x) => x.id === id);
@@ -159,7 +186,7 @@ export function usePromptBuilder() {
       }
     }
     return out;
-  }, [selections, tokensFor]);
+  }, [selections, tokensFor, orderedCategories]);
 
   const saveFavorite = useCallback(() => {
     if (!prompt) return;
@@ -195,5 +222,7 @@ export function usePromptBuilder() {
     removeToken,
     restoreCategory,
     removed,
+    orderedCategories,
+    moveCategory,
   };
 }
