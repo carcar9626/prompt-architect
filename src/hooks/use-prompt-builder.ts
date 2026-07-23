@@ -10,6 +10,7 @@ const STORAGE_KEY = "promptdeck:selections";
 const FAV_KEY = "promptdeck:favorites";
 const CUSTOM_KEY = "promptdeck:custom";
 const REMOVED_KEY = "promptdeck:removed";
+const ORDER_KEY = "promptdeck:order";
 
 const haptic = (ms = 8) => {
   if (typeof navigator !== "undefined" && "vibrate" in navigator) {
