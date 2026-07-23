@@ -73,7 +73,7 @@ function Index() {
     return section?.dataset.catId ?? null;
   };
 
-  const onSectionPointerDown = (catId: string) => (e: React.PointerEvent) => {
+  const onSectionPointerDown = (catId: string) => (e: ReactPointerEvent) => {
     if (e.pointerType === "mouse" && e.button !== 0) return;
     pressStart.current = { x: e.clientX, y: e.clientY };
     clearLongPress();
@@ -84,7 +84,7 @@ function Index() {
     }, 380);
   };
 
-  const onSectionPointerMove = (e: React.PointerEvent) => {
+  const onSectionPointerMove = (e: ReactPointerEvent) => {
     if (draggingId) {
       e.preventDefault();
       const overId = findCatIdAt(e.clientX, e.clientY);
