@@ -188,21 +188,43 @@ function Index() {
 
       {/* Categories */}
       <main className="mx-auto max-w-3xl space-y-3 px-4 pt-5">
-        {CATEGORIES.map((cat) => {
+        {b.orderedCategories.map((cat) => {
           const selectedIds = b.selections[cat.id] ?? [];
           const isOpen = open[cat.id] || editMode;
           const tokens = b.tokensFor(cat.id);
           const removedCount = (b.removed[cat.id] ?? []).length;
           const draft = drafts[cat.id] ?? { label: "", value: "", emoji: "" };
+          const isDragging = draggingId === cat.id;
           return (
             <section
               key={cat.id}
-              className="overflow-hidden rounded-3xl border border-border bg-card/50 backdrop-blur-sm transition-all"
-              style={{ boxShadow: selectedIds.length ? "var(--shadow-neon)" : undefined }}
+              data-cat-id={cat.id}
+              onPointerDown={onSectionPointerDown(cat.id)}
+              onPointerMove={onSectionPointerMove}
+              onPointerUp={onSectionPointerUp}
+              onPointerCancel={onSectionPointerUp}
+              className={cn(
+                "relative overflow-hidden rounded-3xl border bg-card/50 backdrop-blur-sm transition-all",
+                isDragging
+                  ? "border-primary scale-[1.02] z-20 shadow-neon touch-none select-none"
+                  : "border-border",
+                draggingId && !isDragging && "opacity-70",
+              )}
+              style={{ boxShadow: !isDragging && selectedIds.length ? "var(--shadow-neon)" : undefined, touchAction: draggingId ? "none" : undefined }}
             >
+              <span
+                aria-hidden
+                className={cn(
+                  "pointer-events-none absolute right-2 top-2 grid h-5 w-5 place-items-center rounded-md text-muted-foreground/40 transition-opacity",
+                  isDragging ? "text-primary opacity-100" : "opacity-60",
+                )}
+                title="Long-press to reorder"
+              >
+                <GripVertical className="h-3.5 w-3.5" />
+              </span>
               <button
-                onClick={() => setOpen((o) => ({ ...o, [cat.id]: !o[cat.id] }))}
-                className="flex w-full items-center gap-3 px-4 py-4 text-left"
+                onClick={() => handleToggleOpen(cat.id)}
+                className="flex w-full items-center gap-3 px-4 py-4 pr-8 text-left"
               >
                 <div className="grid h-11 w-11 place-items-center rounded-2xl border border-border bg-background/60 text-xl">
                   {cat.emoji}
@@ -222,6 +244,7 @@ function Index() {
                   className={cn("h-5 w-5 text-muted-foreground transition-transform duration-300", isOpen && "rotate-180")}
                 />
               </button>
+
 
               <div
                 className={cn(
