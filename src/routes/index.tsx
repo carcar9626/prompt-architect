@@ -61,6 +61,59 @@ function Index() {
 
   const totalSelected = b.selectedTokens.length;
 
+  const clearLongPress = () => {
+    if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+    pressStart.current = null;
+  };
+
+  const findCatIdAt = (x: number, y: number): string | null => {
+    const el = document.elementFromPoint(x, y);
+    if (!el) return null;
+    const section = (el as Element).closest?.("[data-cat-id]") as HTMLElement | null;
+    return section?.dataset.catId ?? null;
+  };
+
+  const onSectionPointerDown = (catId: string) => (e: React.PointerEvent) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    pressStart.current = { x: e.clientX, y: e.clientY };
+    clearLongPress();
+    longPressTimer.current = setTimeout(() => {
+      setDraggingId(catId);
+      justDragged.current = true;
+      if ("vibrate" in navigator) navigator.vibrate?.(30);
+    }, 380);
+  };
+
+  const onSectionPointerMove = (e: React.PointerEvent) => {
+    if (draggingId) {
+      e.preventDefault();
+      const overId = findCatIdAt(e.clientX, e.clientY);
+      if (overId && overId !== draggingId) b.moveCategory(draggingId, overId);
+      return;
+    }
+    if (pressStart.current) {
+      const dx = e.clientX - pressStart.current.x;
+      const dy = e.clientY - pressStart.current.y;
+      if (dx * dx + dy * dy > 64) clearLongPress();
+    }
+  };
+
+  const onSectionPointerUp = () => {
+    clearLongPress();
+    if (draggingId) {
+      setDraggingId(null);
+      // keep justDragged true briefly to swallow the click that follows
+      setTimeout(() => { justDragged.current = false; }, 50);
+    }
+  };
+
+  const handleToggleOpen = (catId: string) => {
+    if (justDragged.current) { justDragged.current = false; return; }
+    setOpen((o) => ({ ...o, [catId]: !o[catId] }));
+  };
+
+
+
   return (
     <div className="min-h-screen pb-56">
       {/* Header */}
