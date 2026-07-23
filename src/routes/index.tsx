@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { ChevronDown, Copy, Check, Sparkles, Trash2, Heart, X, Wand2, Pencil, Plus, RotateCcw } from "lucide-react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { ChevronDown, Copy, Check, Sparkles, Trash2, Heart, X, Wand2, Pencil, Plus, RotateCcw, GripVertical } from "lucide-react";
 import { CATEGORIES } from "@/lib/prompt-data";
 import { usePromptBuilder } from "@/hooks/use-prompt-builder";
 import { cn } from "@/lib/utils";
@@ -26,6 +26,10 @@ function Index() {
   const [showFavs, setShowFavs] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, { label: string; value: string; emoji: string }>>({});
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pressStart = useRef<{ x: number; y: number } | null>(null);
+  const justDragged = useRef(false);
 
   useEffect(() => {
     if (!copied) return;
@@ -56,6 +60,59 @@ function Index() {
   };
 
   const totalSelected = b.selectedTokens.length;
+
+  const clearLongPress = () => {
+    if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+    pressStart.current = null;
+  };
+
+  const findCatIdAt = (x: number, y: number): string | null => {
+    const el = document.elementFromPoint(x, y);
+    if (!el) return null;
+    const section = (el as Element).closest?.("[data-cat-id]") as HTMLElement | null;
+    return section?.dataset.catId ?? null;
+  };
+
+  const onSectionPointerDown = (catId: string) => (e: ReactPointerEvent) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    pressStart.current = { x: e.clientX, y: e.clientY };
+    clearLongPress();
+    longPressTimer.current = setTimeout(() => {
+      setDraggingId(catId);
+      justDragged.current = true;
+      if ("vibrate" in navigator) navigator.vibrate?.(30);
+    }, 380);
+  };
+
+  const onSectionPointerMove = (e: ReactPointerEvent) => {
+    if (draggingId) {
+      e.preventDefault();
+      const overId = findCatIdAt(e.clientX, e.clientY);
+      if (overId && overId !== draggingId) b.moveCategory(draggingId, overId);
+      return;
+    }
+    if (pressStart.current) {
+      const dx = e.clientX - pressStart.current.x;
+      const dy = e.clientY - pressStart.current.y;
+      if (dx * dx + dy * dy > 64) clearLongPress();
+    }
+  };
+
+  const onSectionPointerUp = () => {
+    clearLongPress();
+    if (draggingId) {
+      setDraggingId(null);
+      // keep justDragged true briefly to swallow the click that follows
+      setTimeout(() => { justDragged.current = false; }, 50);
+    }
+  };
+
+  const handleToggleOpen = (catId: string) => {
+    if (justDragged.current) { justDragged.current = false; return; }
+    setOpen((o) => ({ ...o, [catId]: !o[catId] }));
+  };
+
+
 
   return (
     <div className="min-h-screen pb-56">
@@ -131,21 +188,43 @@ function Index() {
 
       {/* Categories */}
       <main className="mx-auto max-w-3xl space-y-3 px-4 pt-5">
-        {CATEGORIES.map((cat) => {
+        {b.orderedCategories.map((cat) => {
           const selectedIds = b.selections[cat.id] ?? [];
           const isOpen = open[cat.id] || editMode;
           const tokens = b.tokensFor(cat.id);
           const removedCount = (b.removed[cat.id] ?? []).length;
           const draft = drafts[cat.id] ?? { label: "", value: "", emoji: "" };
+          const isDragging = draggingId === cat.id;
           return (
             <section
               key={cat.id}
-              className="overflow-hidden rounded-3xl border border-border bg-card/50 backdrop-blur-sm transition-all"
-              style={{ boxShadow: selectedIds.length ? "var(--shadow-neon)" : undefined }}
+              data-cat-id={cat.id}
+              onPointerDown={onSectionPointerDown(cat.id)}
+              onPointerMove={onSectionPointerMove}
+              onPointerUp={onSectionPointerUp}
+              onPointerCancel={onSectionPointerUp}
+              className={cn(
+                "relative overflow-hidden rounded-3xl border bg-card/50 backdrop-blur-sm transition-all",
+                isDragging
+                  ? "border-primary scale-[1.02] z-20 shadow-neon touch-none select-none"
+                  : "border-border",
+                draggingId && !isDragging && "opacity-70",
+              )}
+              style={{ boxShadow: !isDragging && selectedIds.length ? "var(--shadow-neon)" : undefined, touchAction: draggingId ? "none" : undefined }}
             >
+              <span
+                aria-hidden
+                className={cn(
+                  "pointer-events-none absolute right-2 top-2 grid h-5 w-5 place-items-center rounded-md text-muted-foreground/40 transition-opacity",
+                  isDragging ? "text-primary opacity-100" : "opacity-60",
+                )}
+                title="Long-press to reorder"
+              >
+                <GripVertical className="h-3.5 w-3.5" />
+              </span>
               <button
-                onClick={() => setOpen((o) => ({ ...o, [cat.id]: !o[cat.id] }))}
-                className="flex w-full items-center gap-3 px-4 py-4 text-left"
+                onClick={() => handleToggleOpen(cat.id)}
+                className="flex w-full items-center gap-3 px-4 py-4 pr-8 text-left"
               >
                 <div className="grid h-11 w-11 place-items-center rounded-2xl border border-border bg-background/60 text-xl">
                   {cat.emoji}
@@ -165,6 +244,7 @@ function Index() {
                   className={cn("h-5 w-5 text-muted-foreground transition-transform duration-300", isOpen && "rotate-180")}
                 />
               </button>
+
 
               <div
                 className={cn(
