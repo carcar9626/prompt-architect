@@ -322,8 +322,30 @@ function Index() {
                       </div>
                     )}
 
-                    {/* All tokens */}
-                    {tokens.map((t) => {
+                    {/* All tokens displayed as dropdown list when expanded */}
+                    {isOpen && (
+                      <div className="relative">
+                        <select
+                          onChange={(e) => {
+                            if (e.target.value && !editMode) {
+                              b.toggle(cat.id, e.target.value);
+                              e.target.value = "";
+                            }
+                          }}
+                          className="rounded-2xl border border-border bg-background/60 px-3 py-2 text-sm font-medium text-foreground/80 hover:border-primary/40 hover:text-foreground transition"
+                        >
+                          <option value="">Select a token...</option>
+                          {tokens.map((t) => (
+                            <option key={t.id} value={t.id}>
+                              {t.emoji} {t.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {/* All tokens displayed as regular buttons when not expanded */}
+                    {!isOpen && tokens.map((t) => {
                       const active = selectedIds.includes(t.id);
                       return (
                         <div key={t.id} className="relative">
