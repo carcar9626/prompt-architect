@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { ChevronDown, Copy, Check, Sparkles, Trash2, Heart, X, Wand2, Pencil, Plus, RotateCcw, GripVertical } from "lucide-react";
+import { ChevronDown, Copy, Check, Sparkles, Trash2, Heart, X, Wand2, Pencil, Plus, RotateCcw, GripVertical, ChevronRight } from "lucide-react";
 import { CATEGORIES } from "@/lib/prompt-data";
 import { usePromptBuilder } from "@/hooks/use-prompt-builder";
 import { cn } from "@/lib/utils";
@@ -30,6 +30,7 @@ function Index() {
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pressStart = useRef<{ x: number; y: number } | null>(null);
   const justDragged = useRef(false);
+  const [dropdownOpen, setDropdownOpen] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (!copied) return;
@@ -110,6 +111,30 @@ function Index() {
   const handleToggleOpen = (catId: string) => {
     if (justDragged.current) { justDragged.current = false; return; }
     setOpen((o) => ({ ...o, [catId]: !o[catId] }));
+  };
+
+  const toggleDropdown = (catId: string) => {
+    setDropdownOpen((prev) => ({ ...prev, [catId]: !prev[catId] }));
+  };
+
+  // Get the 4 most used tokens for each category
+  const getMostUsedTokens = (categoryId: string) => {
+    const category = CATEGORIES.find(c => c.id === categoryId);
+    if (!category) return [];
+    
+    // For demo purposes, we'll use a fixed set of "most used" tokens
+    // In a real app, this would be based on usage analytics
+    const mostUsedIds = [
+      's1', 's2', 's3', 's4', // Subject
+      'st1', 'st2', 'st3', 'st4', // Style
+      'l1', 'l2', 'l3', 'l4', // Lighting
+      'c1', 'c2', 'c3', 'c4', // Camera
+      'm1', 'm2', 'm3', 'm4', // Mood
+      'e1', 'e2', 'e3', 'e4', // Setting
+      'q1', 'q2', 'q3', 'q4'  // Quality
+    ];
+    
+    return category.tokens.filter(token => mostUsedIds.includes(token.id));
   };
 
 
@@ -195,6 +220,8 @@ function Index() {
           const removedCount = (b.removed[cat.id] ?? []).length;
           const draft = drafts[cat.id] ?? { label: "", value: "", emoji: "" };
           const isDragging = draggingId === cat.id;
+          const mostUsedTokens = getMostUsedTokens(cat.id);
+          
           return (
             <section
               key={cat.id}
@@ -254,6 +281,48 @@ function Index() {
               >
                 <div className="overflow-hidden">
                   <div className="flex flex-wrap gap-2 px-4 pb-4">
+                    {/* Dropdown for preset tokens */}
+                    {mostUsedTokens.length > 0 && (
+                      <div className="relative">
+                        <button
+                          onClick={() => toggleDropdown(cat.id)}
+                          className="flex items-center gap-2 rounded-2xl border border-border bg-background/40 px-3 py-2 text-sm font-medium text-foreground/80 hover:border-primary/40 hover:text-foreground transition"
+                        >
+                          <span className="text-base leading-none">✨</span>
+                          <span>Presets</span>
+                          <ChevronRight className="h-3.5 w-3.5" />
+                        </button>
+                        
+                        {dropdownOpen[cat.id] && (
+                          <div className="absolute left-0 top-full mt-2 z-10 rounded-2xl border border-border bg-card/60 p-2 shadow-lg">
+                            <div className="grid grid-cols-4 gap-2">
+                              {mostUsedTokens.map((token) => {
+                                const active = selectedIds.includes(token.id);
+                                return (
+                                  <button
+                                    key={token.id}
+                                    onClick={() => (editMode ? b.removeToken(cat.id, token.id) : b.toggle(cat.id, token.id))}
+                                    className={cn(
+                                      "flex flex-col items-center gap-1 rounded-xl border px-2 py-2 text-xs transition-all active:scale-95",
+                                      editMode
+                                        ? "border-destructive/40 bg-destructive/5 text-foreground/80 hover:border-destructive hover:bg-destructive/15 hover:text-destructive"
+                                        : active
+                                          ? "border-primary bg-primary/15 text-primary shadow-neon"
+                                          : "border-border bg-background/40 text-foreground/80 hover:border-primary/40 hover:text-foreground",
+                                    )}
+                                  >
+                                    <span className="text-lg">{token.emoji}</span>
+                                    <span className="truncate max-w-[60px]">{token.label}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* All tokens */}
                     {tokens.map((t) => {
                       const active = selectedIds.includes(t.id);
                       return (
