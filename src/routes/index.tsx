@@ -19,8 +19,8 @@ export const Route = createFileRoute("/")({
 
 function Index() {
   const b = usePromptBuilder();
-  const [open, setOpen] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(CATEGORIES.map((c, i) => [c.id, i < 2])),
+  const [open, setOpen] = useState<Record<string, boolean>>(() => 
+    Object.fromEntries(CATEGORIES.map((c) => [c.id, false]))
   );
   const [copied, setCopied] = useState(false);
   const [showFavs, setShowFavs] = useState(false);
