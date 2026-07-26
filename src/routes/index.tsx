@@ -232,6 +232,7 @@ function Index() {
           const selectedIds = b.selections[cat.id] ?? [];
           const isOpen = open[cat.id] || editMode;
           const tokens = b.tokensFor(cat.id);
+          const recentTokens = b.recentTokensFor(cat.id);
           const removedCount = (b.removed[cat.id] ?? []).length;
           const draft = drafts[cat.id] ?? { label: "", value: "", emoji: "" };
           const isDragging = draggingId === cat.id;
@@ -248,7 +249,9 @@ function Index() {
                 "relative overflow-hidden rounded-3xl border bg-card/50 backdrop-blur-sm transition-all",
                 isDragging
                   ? "border-primary scale-[1.02] z-20 shadow-neon touch-none select-none"
-                  : "border-border",
+                  : isOpen
+                    ? "border-primary/50"
+                    : "border-border",
                 draggingId && !isDragging && "opacity-70",
               )}
               style={{
@@ -299,44 +302,82 @@ function Index() {
                 )}
               >
                 <div className="overflow-hidden">
-                  <div className="flex flex-wrap gap-2 px-4 pb-4">
-                    {tokens.map((t) => {
-                      const active = selectedIds.includes(t.id);
-                      return (
+                  {editMode ? (
+                    <div className="flex flex-wrap gap-2 px-4 pb-4">
+                      {tokens.map((t) => (
                         <div key={t.id} className="relative">
                           <button
-                            onClick={() =>
-                              editMode ? b.removeToken(cat.id, t.id) : b.toggle(cat.id, t.id)
-                            }
-                            className={cn(
-                              "group flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm font-medium transition-all duration-200 active:scale-95",
-                              editMode
-                                ? "border-destructive/40 bg-destructive/5 text-foreground/80 hover:border-destructive hover:bg-destructive/15 hover:text-destructive pr-8"
-                                : active
-                                  ? "border-primary bg-primary/15 text-primary shadow-neon"
-                                  : "border-border bg-background/40 text-foreground/80 hover:border-primary/40 hover:text-foreground",
-                            )}
+                            onClick={() => b.removeToken(cat.id, t.id)}
+                            className="group flex items-center gap-2 rounded-2xl border border-destructive/40 bg-destructive/5 py-2 pl-3 pr-8 text-sm font-medium text-foreground/80 transition-all duration-200 hover:border-destructive hover:bg-destructive/15 hover:text-destructive active:scale-95"
                           >
                             <span className="text-base leading-none">{t.emoji}</span>
                             <span>{t.label}</span>
-                            {!editMode && active && (
-                              <Check className="h-3.5 w-3.5" strokeWidth={3} />
-                            )}
                           </button>
-                          {editMode && (
-                            <span className="pointer-events-none absolute right-2 top-1/2 grid h-4 w-4 -translate-y-1/2 place-items-center rounded-full bg-destructive/80 text-background">
-                              <X className="h-3 w-3" strokeWidth={3} />
-                            </span>
-                          )}
+                          <span className="pointer-events-none absolute right-2 top-1/2 grid h-4 w-4 -translate-y-1/2 place-items-center rounded-full bg-destructive/80 text-background">
+                            <X className="h-3 w-3" strokeWidth={3} />
+                          </span>
                         </div>
-                      );
-                    })}
-                    {tokens.length === 0 && !editMode && (
-                      <p className="text-xs text-muted-foreground">
-                        All tokens removed. Enable Edit to add your own.
-                      </p>
-                    )}
-                  </div>
+                      ))}
+                      {tokens.length === 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          No tokens in this category yet — add one below.
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-2 px-4 pb-4">
+                      <div className="relative">
+                        <select
+                          value=""
+                          onChange={(e) => {
+                            if (e.target.value) b.toggle(cat.id, e.target.value);
+                          }}
+                          className="w-full rounded-2xl border border-border bg-background/60 px-3 py-2 text-sm font-medium text-foreground/80 transition hover:border-primary/40 hover:text-foreground"
+                        >
+                          <option value="">Select a token...</option>
+                          {tokens.map((t) => (
+                            <option key={t.id} value={t.id}>
+                              {t.emoji} {t.label}
+                              {selectedIds.includes(t.id) ? " (selected)" : ""}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      {recentTokens.length > 0 && (
+                        <div>
+                          <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                            Recently Used
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {recentTokens.map((t) => {
+                              const active = selectedIds.includes(t.id);
+                              return (
+                                <button
+                                  key={t.id}
+                                  onClick={() => b.toggle(cat.id, t.id)}
+                                  className={cn(
+                                    "flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm font-medium transition-all duration-200 active:scale-95",
+                                    active
+                                      ? "border-primary bg-primary/15 text-primary shadow-neon"
+                                      : "border-border bg-background/40 text-foreground/80 hover:border-primary/40 hover:text-foreground",
+                                  )}
+                                >
+                                  <span className="text-base leading-none">{t.emoji}</span>
+                                  <span>{t.label}</span>
+                                  {active && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                      {tokens.length === 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          All tokens removed. Enable Edit to add your own.
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                   {editMode && (
                     <div className="mx-4 mb-4 space-y-2 rounded-2xl border border-dashed border-primary/40 bg-primary/5 p-3">

@@ -11,6 +11,8 @@ const FAV_KEY = "promptdeck:favorites";
 const CUSTOM_KEY = "promptdeck:custom";
 const REMOVED_KEY = "promptdeck:removed";
 const ORDER_KEY = "promptdeck:order";
+const RECENT_KEY = "promptdeck:recent";
+const RECENT_PER_CATEGORY = 4;
 
 const haptic = (ms = 8) => {
   if (typeof navigator !== "undefined" && "vibrate" in navigator) {
@@ -51,6 +53,7 @@ export function usePromptBuilder() {
   const [custom, setCustom] = useState<CustomTokens>({});
   const [removed, setRemoved] = useState<RemovedTokens>({});
   const [order, setOrder] = useState<string[]>(() => CATEGORIES.map((c) => c.id));
+  const [recent, setRecent] = useState<Record<string, string[]>>({});
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
@@ -73,6 +76,8 @@ export function usePromptBuilder() {
         ];
         setOrder(merged);
       }
+      const rc = localStorage.getItem(RECENT_KEY);
+      if (rc) setRecent(JSON.parse(rc));
     } catch {
       /* ignore */
     }
@@ -94,6 +99,9 @@ export function usePromptBuilder() {
   useEffect(() => {
     if (hydrated) localStorage.setItem(ORDER_KEY, JSON.stringify(order));
   }, [order, hydrated]);
+  useEffect(() => {
+    if (hydrated) localStorage.setItem(RECENT_KEY, JSON.stringify(recent));
+  }, [recent, hydrated]);
 
   const tokensFor = useCallback(
     (categoryId: string): Token[] => {
@@ -107,14 +115,44 @@ export function usePromptBuilder() {
     [custom, removed],
   );
 
-  const toggle = useCallback((categoryId: string, tokenId: string) => {
-    haptic(10);
-    setSelections((prev) => {
-      const cur = prev[categoryId] ?? [];
-      const next = cur.includes(tokenId) ? cur.filter((x) => x !== tokenId) : [...cur, tokenId];
-      return { ...prev, [categoryId]: next };
-    });
-  }, []);
+  const recentTokensFor = useCallback(
+    (categoryId: string): Token[] => {
+      const ids = recent[categoryId] ?? [];
+      const available = tokensFor(categoryId);
+      const byId = new Map(available.map((t) => [t.id, t]));
+      const out: Token[] = [];
+      for (const id of ids) {
+        const t = byId.get(id);
+        if (t) out.push(t);
+        if (out.length === RECENT_PER_CATEGORY) break;
+      }
+      return out;
+    },
+    [recent, tokensFor],
+  );
+
+  const toggle = useCallback(
+    (categoryId: string, tokenId: string) => {
+      haptic(10);
+      const isAdding = !(selections[categoryId] ?? []).includes(tokenId);
+      setSelections((prev) => {
+        const cur = prev[categoryId] ?? [];
+        const next = cur.includes(tokenId) ? cur.filter((x) => x !== tokenId) : [...cur, tokenId];
+        return { ...prev, [categoryId]: next };
+      });
+      if (isAdding) {
+        setRecent((prev) => {
+          const cur = prev[categoryId] ?? [];
+          const next = [tokenId, ...cur.filter((id) => id !== tokenId)].slice(
+            0,
+            RECENT_PER_CATEGORY * 2,
+          );
+          return { ...prev, [categoryId]: next };
+        });
+      }
+    },
+    [selections],
+  );
 
   const removeToken = useCallback((categoryId: string, tokenId: string) => {
     haptic(12);
@@ -266,6 +304,7 @@ export function usePromptBuilder() {
     loadFavorite,
     removeFavorite,
     tokensFor,
+    recentTokensFor,
     addToken,
     removeToken,
     restoreCategory,
