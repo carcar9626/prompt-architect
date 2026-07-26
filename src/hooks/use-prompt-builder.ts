@@ -192,15 +192,13 @@ export function usePromptBuilder() {
     [recent, tokensFor],
   );
 
+  // One selection per category: picking a token replaces whatever was
+  // selected before; re-picking the already-selected token deselects it.
   const toggle = useCallback(
     (categoryId: string, tokenId: string) => {
       haptic(10);
       const isAdding = !(selections[categoryId] ?? []).includes(tokenId);
-      setSelections((prev) => {
-        const cur = prev[categoryId] ?? [];
-        const next = cur.includes(tokenId) ? cur.filter((x) => x !== tokenId) : [...cur, tokenId];
-        return { ...prev, [categoryId]: next };
-      });
+      setSelections((prev) => ({ ...prev, [categoryId]: isAdding ? [tokenId] : [] }));
       if (isAdding) {
         setRecent((prev) => {
           const cur = prev[categoryId] ?? [];
