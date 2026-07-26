@@ -1,5 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import {
   ChevronDown,
   Copy,
@@ -13,6 +19,8 @@ import {
   Plus,
   RotateCcw,
   GripVertical,
+  Download,
+  Upload,
 } from "lucide-react";
 import { CATEGORIES } from "@/lib/prompt-data";
 import { usePromptBuilder } from "@/hooks/use-prompt-builder";
@@ -49,15 +57,24 @@ function Index() {
     Record<string, { label: string; value: string; emoji: string }>
   >({});
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [importError, setImportError] = useState(false);
+  const [pendingRemoval, setPendingRemoval] = useState<Record<string, string[]>>({});
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pressStart = useRef<{ x: number; y: number } | null>(null);
   const justDragged = useRef(false);
+  const importInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!copied) return;
     const t = setTimeout(() => setCopied(false), 1600);
     return () => clearTimeout(t);
   }, [copied]);
+
+  useEffect(() => {
+    if (!importError) return;
+    const t = setTimeout(() => setImportError(false), 2500);
+    return () => clearTimeout(t);
+  }, [importError]);
 
   const copy = async () => {
     if (!b.prompt) return;
@@ -68,6 +85,74 @@ function Index() {
     } catch {
       /* ignore */
     }
+  };
+
+  const handleExport = () => {
+    const data = b.exportData();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `promptdeck-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportFile = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(String(reader.result));
+        const proceed = window.confirm(
+          "Import this backup? It will replace your current tokens, favorites, and settings.",
+        );
+        if (!proceed) return;
+        if (!b.importData(parsed)) setImportError(true);
+      } catch {
+        setImportError(true);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const pendingRemovalCount = Object.values(pendingRemoval).reduce((n, ids) => n + ids.length, 0);
+
+  const togglePendingRemoval = (catId: string, tokenId: string) => {
+    if ("vibrate" in navigator) navigator.vibrate?.(10);
+    setPendingRemoval((prev) => {
+      const cur = prev[catId] ?? [];
+      const next = cur.includes(tokenId) ? cur.filter((id) => id !== tokenId) : [...cur, tokenId];
+      return { ...prev, [catId]: next };
+    });
+  };
+
+  const enterEditMode = () => {
+    setPendingRemoval({});
+    setEditMode(true);
+  };
+
+  const cancelEditMode = () => {
+    setPendingRemoval({});
+    setEditMode(false);
+  };
+
+  const confirmEditMode = () => {
+    if (pendingRemovalCount === 0) {
+      setEditMode(false);
+      return;
+    }
+    const proceed = window.confirm(
+      `Delete ${pendingRemovalCount} token${pendingRemovalCount === 1 ? "" : "s"}? This can't be undone.`,
+    );
+    if (!proceed) return;
+    for (const [catId, ids] of Object.entries(pendingRemoval)) {
+      for (const id of ids) b.removeToken(catId, id);
+    }
+    setPendingRemoval({});
+    setEditMode(false);
   };
 
   const setDraft = (
@@ -167,19 +252,38 @@ function Index() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setEditMode((v) => !v)}
-              className={cn(
-                "flex h-10 items-center gap-1.5 rounded-xl border px-3 text-xs font-semibold transition active:scale-95",
-                editMode
-                  ? "border-primary bg-primary/15 text-primary shadow-neon"
-                  : "border-border bg-card/60 text-muted-foreground hover:border-primary/60 hover:text-primary",
-              )}
-              aria-label="Edit tokens"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-              {editMode ? "Done" : "Edit"}
-            </button>
+            {editMode ? (
+              <>
+                <button
+                  onClick={cancelEditMode}
+                  className="flex h-10 items-center gap-1.5 rounded-xl border border-border bg-card/60 px-3 text-xs font-semibold text-muted-foreground transition hover:border-destructive/50 hover:text-destructive active:scale-95"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmEditMode}
+                  className={cn(
+                    "flex h-10 items-center gap-1.5 rounded-xl border px-3 text-xs font-semibold transition active:scale-95",
+                    pendingRemovalCount > 0
+                      ? "border-destructive bg-destructive/15 text-destructive shadow-sm"
+                      : "border-primary bg-primary/15 text-primary shadow-neon",
+                  )}
+                  aria-label={pendingRemovalCount > 0 ? "Confirm delete" : "Done editing"}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  {pendingRemovalCount > 0 ? `Delete (${pendingRemovalCount})` : "Done"}
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={enterEditMode}
+                className="flex h-10 items-center gap-1.5 rounded-xl border border-border bg-card/60 px-3 text-xs font-semibold text-muted-foreground transition hover:border-primary/60 hover:text-primary active:scale-95"
+                aria-label="Edit tokens"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                Edit
+              </button>
+            )}
             <button
               onClick={() => setShowFavs(true)}
               className="relative grid h-10 w-10 place-items-center rounded-xl border border-border bg-card/60 transition hover:border-primary/60 hover:text-primary active:scale-95"
@@ -196,7 +300,9 @@ function Index() {
         </div>
         {editMode && (
           <div className="border-t border-primary/30 bg-primary/5 px-4 py-2 text-center text-[11px] font-medium text-primary">
-            Edit mode · tap × to remove, or add your own tokens below
+            {pendingRemovalCount > 0
+              ? `${pendingRemovalCount} marked for removal · tap Delete to confirm, or Cancel to discard`
+              : "Edit mode · tap a token to mark it for removal, or add your own below"}
           </div>
         )}
       </header>
@@ -304,20 +410,34 @@ function Index() {
                 <div className="overflow-hidden">
                   {editMode ? (
                     <div className="flex flex-wrap gap-2 px-4 pb-4">
-                      {tokens.map((t) => (
-                        <div key={t.id} className="relative">
+                      {tokens.map((t) => {
+                        const marked = (pendingRemoval[cat.id] ?? []).includes(t.id);
+                        return (
                           <button
-                            onClick={() => b.removeToken(cat.id, t.id)}
-                            className="group flex items-center gap-2 rounded-2xl border border-destructive/40 bg-destructive/5 py-2 pl-3 pr-8 text-sm font-medium text-foreground/80 transition-all duration-200 hover:border-destructive hover:bg-destructive/15 hover:text-destructive active:scale-95"
+                            key={t.id}
+                            onClick={() => togglePendingRemoval(cat.id, t.id)}
+                            className={cn(
+                              "flex items-center gap-2 rounded-2xl border py-2 pl-2.5 pr-3 text-sm font-medium transition-all duration-200 active:scale-95",
+                              marked
+                                ? "border-destructive bg-destructive/15 text-destructive"
+                                : "border-border bg-background/40 text-foreground/80 hover:border-destructive/40 hover:text-destructive",
+                            )}
                           >
+                            <span
+                              className={cn(
+                                "grid h-4.5 w-4.5 place-items-center rounded-md border",
+                                marked
+                                  ? "border-destructive bg-destructive text-background"
+                                  : "border-border bg-background/60",
+                              )}
+                            >
+                              {marked && <Check className="h-3 w-3" strokeWidth={3} />}
+                            </span>
                             <span className="text-base leading-none">{t.emoji}</span>
                             <span>{t.label}</span>
                           </button>
-                          <span className="pointer-events-none absolute right-2 top-1/2 grid h-4 w-4 -translate-y-1/2 place-items-center rounded-full bg-destructive/80 text-background">
-                            <X className="h-3 w-3" strokeWidth={3} />
-                          </span>
-                        </div>
-                      ))}
+                        );
+                      })}
                       {tokens.length === 0 && (
                         <p className="text-xs text-muted-foreground">
                           No tokens in this category yet — add one below.
@@ -503,6 +623,44 @@ function Index() {
                 <X className="h-4 w-4" />
               </button>
             </div>
+            <div className="mb-4 rounded-2xl border border-border bg-background/40 p-3">
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                Backup & Restore
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleExport}
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border bg-card/60 py-2 text-xs font-medium text-foreground/80 transition hover:border-primary/50 hover:text-primary"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Export
+                </button>
+                <button
+                  onClick={() => importInputRef.current?.click()}
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border bg-card/60 py-2 text-xs font-medium text-foreground/80 transition hover:border-primary/50 hover:text-primary"
+                >
+                  <Upload className="h-3.5 w-3.5" />
+                  Import
+                </button>
+                <input
+                  ref={importInputRef}
+                  type="file"
+                  accept="application/json,.json"
+                  className="hidden"
+                  onChange={handleImportFile}
+                />
+              </div>
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                Export saves all your tokens, order, and favorites as a file you can move to another
+                device. Import replaces your current data.
+              </p>
+              {importError && (
+                <p className="mt-2 text-[11px] font-medium text-destructive">
+                  Import failed — that file isn't a valid PromptDeck backup.
+                </p>
+              )}
+            </div>
+
             {b.favorites.length === 0 ? (
               <div className="py-12 text-center text-sm text-muted-foreground">
                 <Heart className="mx-auto mb-3 h-8 w-8 opacity-40" />

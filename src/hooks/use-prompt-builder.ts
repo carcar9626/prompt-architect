@@ -5,6 +5,19 @@ type Selections = Record<string, string[]>;
 type Favorite = { id: string; prompt: string; selections: Selections; createdAt: number };
 type CustomTokens = Record<string, Token[]>;
 type RemovedTokens = Record<string, string[]>;
+type RecentTokens = Record<string, string[]>;
+type BackupData = {
+  version: number;
+  exportedAt: string;
+  selections: Selections;
+  favorites: Favorite[];
+  custom: CustomTokens;
+  removed: RemovedTokens;
+  order: string[];
+  recent: RecentTokens;
+};
+
+const BACKUP_VERSION = 1;
 
 const STORAGE_KEY = "promptdeck:selections";
 const FAV_KEY = "promptdeck:favorites";
@@ -53,7 +66,7 @@ export function usePromptBuilder() {
   const [custom, setCustom] = useState<CustomTokens>({});
   const [removed, setRemoved] = useState<RemovedTokens>({});
   const [order, setOrder] = useState<string[]>(() => CATEGORIES.map((c) => c.id));
-  const [recent, setRecent] = useState<Record<string, string[]>>({});
+  const [recent, setRecent] = useState<RecentTokens>({});
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
@@ -292,6 +305,50 @@ export function usePromptBuilder() {
     setFavorites((prev) => prev.filter((f) => f.id !== id));
   }, []);
 
+  const exportData = useCallback(
+    (): BackupData => ({
+      version: BACKUP_VERSION,
+      exportedAt: new Date().toISOString(),
+      selections,
+      favorites,
+      custom,
+      removed,
+      order,
+      recent,
+    }),
+    [selections, favorites, custom, removed, order, recent],
+  );
+
+  // Best-effort shape check on untrusted imported JSON — falls back to safe
+  // defaults for any field that's missing or the wrong type rather than
+  // rejecting the whole file over one bad field.
+  const importData = useCallback((data: unknown): boolean => {
+    if (!data || typeof data !== "object") return false;
+    const d = data as Partial<BackupData>;
+    if (
+      typeof d.selections !== "object" ||
+      d.selections === null ||
+      !Array.isArray(d.favorites) ||
+      typeof d.custom !== "object" ||
+      d.custom === null ||
+      typeof d.removed !== "object" ||
+      d.removed === null ||
+      !Array.isArray(d.order) ||
+      typeof d.recent !== "object" ||
+      d.recent === null
+    ) {
+      return false;
+    }
+    haptic(20);
+    setSelections(d.selections as Selections);
+    setFavorites(d.favorites as Favorite[]);
+    setCustom(d.custom as CustomTokens);
+    setRemoved(d.removed as RemovedTokens);
+    setOrder(d.order.length ? (d.order as string[]) : CATEGORIES.map((c) => c.id));
+    setRecent(d.recent as RecentTokens);
+    return true;
+  }, []);
+
   return {
     selections,
     toggle,
@@ -311,5 +368,7 @@ export function usePromptBuilder() {
     removed,
     orderedCategories,
     moveCategory,
+    exportData,
+    importData,
   };
 }
