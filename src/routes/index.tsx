@@ -239,14 +239,16 @@ function Index() {
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
           <div className="flex items-center gap-2.5">
             <div
-              className="grid h-9 w-9 place-items-center rounded-xl shadow-neon"
+              className="grid h-9 w-9 place-items-center rounded-xl"
               style={{ background: "var(--gradient-neon)" }}
             >
-              <Sparkles className="h-5 w-5 text-primary-foreground" strokeWidth={2.5} />
+              <Sparkles className="h-4.5 w-4.5 text-primary-foreground" strokeWidth={2.5} />
             </div>
             <div>
-              <h1 className="text-base font-semibold tracking-tight">PromptDeck</h1>
-              <p className="text-[11px] uppercase tracking-widest text-muted-foreground">
+              <h1 className="text-[17px] font-semibold tracking-tight text-gradient-neon">
+                PromptDeck
+              </h1>
+              <p className="text-[10.5px] uppercase tracking-widest text-muted-foreground">
                 the lego set for ai art
               </p>
             </div>
@@ -265,8 +267,8 @@ function Index() {
                   className={cn(
                     "flex h-10 items-center gap-1.5 rounded-xl border px-3 text-xs font-semibold transition active:scale-95",
                     pendingRemovalCount > 0
-                      ? "border-destructive bg-destructive/15 text-destructive shadow-sm"
-                      : "border-primary bg-primary/15 text-primary shadow-neon",
+                      ? "border-destructive bg-destructive/15 text-destructive"
+                      : "border-primary bg-primary/15 text-primary",
                   )}
                   aria-label={pendingRemovalCount > 0 ? "Confirm delete" : "Done editing"}
                 >
@@ -312,7 +314,7 @@ function Index() {
         <div className="flex gap-2">
           <button
             onClick={b.randomize}
-            className="group flex flex-1 items-center justify-center gap-2 rounded-2xl border border-primary/40 bg-primary/10 py-3 text-sm font-semibold text-primary transition hover:shadow-neon active:scale-[0.98]"
+            className="group flex flex-1 items-center justify-center gap-2 rounded-xl border border-primary/40 bg-primary/10 py-3 text-sm font-semibold text-primary transition hover:border-primary/70 hover:bg-primary/15 active:scale-[0.98]"
           >
             <Wand2 className="h-4 w-4 transition group-hover:rotate-12" />
             Surprise Me
@@ -320,7 +322,7 @@ function Index() {
           <button
             onClick={b.clearAll}
             disabled={totalSelected === 0}
-            className="flex items-center justify-center gap-2 rounded-2xl border border-border bg-card/60 px-4 py-3 text-sm font-medium text-muted-foreground transition hover:border-destructive/50 hover:text-destructive disabled:opacity-40 active:scale-95"
+            className="flex items-center justify-center gap-2 rounded-xl border border-border bg-card/60 px-4 py-3 text-sm font-medium text-muted-foreground transition hover:border-destructive/50 hover:text-destructive disabled:opacity-40 active:scale-95"
           >
             <Trash2 className="h-4 w-4" />
           </button>
@@ -352,18 +354,17 @@ function Index() {
               onPointerUp={onSectionPointerUp}
               onPointerCancel={onSectionPointerUp}
               className={cn(
-                "relative overflow-hidden rounded-3xl border bg-card/50 backdrop-blur-sm transition-all",
+                "relative overflow-hidden rounded-2xl border bg-card/60 transition-all",
                 isDragging
                   ? "border-primary scale-[1.02] z-20 shadow-neon touch-none select-none"
                   : isOpen
                     ? "border-primary/50"
-                    : "border-border",
+                    : selectedIds.length
+                      ? "border-primary/25"
+                      : "border-border",
                 draggingId && !isDragging && "opacity-70",
               )}
-              style={{
-                boxShadow: !isDragging && selectedIds.length ? "var(--shadow-neon)" : undefined,
-                touchAction: draggingId ? "none" : undefined,
-              }}
+              style={{ touchAction: draggingId ? "none" : undefined }}
             >
               <span
                 aria-hidden
@@ -476,9 +477,9 @@ function Index() {
                                   key={t.id}
                                   onClick={() => b.toggle(cat.id, t.id)}
                                   className={cn(
-                                    "flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm font-medium transition-all duration-200 active:scale-95",
+                                    "flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition-all duration-200 active:scale-95",
                                     active
-                                      ? "border-primary bg-primary/15 text-primary shadow-neon"
+                                      ? "border-primary bg-primary/10 text-primary"
                                       : "border-border bg-background/40 text-foreground/80 hover:border-primary/40 hover:text-foreground",
                                   )}
                                 >
@@ -556,9 +557,7 @@ function Index() {
           );
         })}
 
-        <footer className="pt-6 text-center text-xs text-muted-foreground">
-          Built for Midjourney · DALL·E · SDXL · Flux
-        </footer>
+        <footer className="pt-6 text-center text-xs text-muted-foreground">DJJPS 2026 ©</footer>
       </main>
 
       {/* Sticky accumulator */}

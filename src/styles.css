@@ -38,7 +38,7 @@
 }
 
 :root {
-  --radius: 0.875rem;
+  --radius: 0.75rem;
 
   /* Studio Cyber-Violet — obsidian base with a violet accent family (~291-296deg) */
   --background: oklch(0.151 0.0064 285.61); /* #0B0B0E */
@@ -67,8 +67,8 @@
   --ring: oklch(0.5999 0.2412 293.08); /* #8C52FF */
 
   --gradient-neon: linear-gradient(135deg, var(--primary), var(--neon));
-  --shadow-neon: 0 0 16px oklch(from var(--primary) l c h / 0.35);
-  --shadow-card: 0 8px 32px -8px oklch(0 0 0 / 0.5);
+  --shadow-neon: 0 0 14px oklch(from var(--primary) l c h / 0.3);
+  --shadow-card: 0 4px 24px -8px oklch(0 0 0 / 0.45);
 }
 
 @layer base {
@@ -83,10 +83,26 @@
     -webkit-font-smoothing: antialiased;
   }
   body {
-    background-image:
-      radial-gradient(ellipse 80% 50% at 50% -10%, oklch(0.85 0.18 195 / 0.08), transparent),
-      radial-gradient(ellipse 60% 50% at 90% 100%, oklch(0.82 0.22 320 / 0.06), transparent);
+    position: relative;
+    /* One quiet vignette, not a page-wide wash — restraint is the point. */
+    background-image: radial-gradient(
+      ellipse 55% 35% at 50% -8%,
+      oklch(from var(--primary) l c h / 0.05),
+      transparent
+    );
     background-attachment: fixed;
+  }
+  /* A whisper of film grain — the difference between "flat dark app" and
+     something that feels made, not generated. Kept deliberately faint. */
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.05;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   }
 }
 
