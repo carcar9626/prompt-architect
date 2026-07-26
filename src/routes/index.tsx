@@ -1,6 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { ChevronDown, Copy, Check, Sparkles, Trash2, Heart, X, Wand2, Pencil, Plus, RotateCcw, GripVertical, ChevronRight } from "lucide-react";
+import {
+  ChevronDown,
+  Copy,
+  Check,
+  Sparkles,
+  Trash2,
+  Heart,
+  X,
+  Wand2,
+  Pencil,
+  Plus,
+  RotateCcw,
+  GripVertical,
+} from "lucide-react";
 import { CATEGORIES } from "@/lib/prompt-data";
 import { usePromptBuilder } from "@/hooks/use-prompt-builder";
 import { cn } from "@/lib/utils";
@@ -9,9 +22,16 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "PromptDeck — The Lego Set for AI Art" },
-      { name: "description", content: "Build professional AI art prompts by tapping visual token cards. No blank page. Copy to Midjourney, DALL·E, or SDXL." },
+      {
+        name: "description",
+        content:
+          "Build professional AI art prompts by tapping visual token cards. No blank page. Copy to Midjourney, DALL·E, or SDXL.",
+      },
       { property: "og:title", content: "PromptDeck — The Lego Set for AI Art" },
-      { property: "og:description", content: "Build professional AI art prompts by tapping visual token cards." },
+      {
+        property: "og:description",
+        content: "Build professional AI art prompts by tapping visual token cards.",
+      },
     ],
   }),
   component: Index,
@@ -19,13 +39,15 @@ export const Route = createFileRoute("/")({
 
 function Index() {
   const b = usePromptBuilder();
-  const [open, setOpen] = useState<Record<string, boolean>>(() => 
-    Object.fromEntries(CATEGORIES.map((c) => [c.id, false]))
+  const [open, setOpen] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(CATEGORIES.map((c) => [c.id, false])),
   );
   const [copied, setCopied] = useState(false);
   const [showFavs, setShowFavs] = useState(false);
   const [editMode, setEditMode] = useState(false);
-  const [drafts, setDrafts] = useState<Record<string, { label: string; value: string; emoji: string }>>({});
+  const [drafts, setDrafts] = useState<
+    Record<string, { label: string; value: string; emoji: string }>
+  >({});
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pressStart = useRef<{ x: number; y: number } | null>(null);
@@ -43,10 +65,15 @@ function Index() {
       await navigator.clipboard.writeText(b.prompt);
       setCopied(true);
       if ("vibrate" in navigator) navigator.vibrate?.([8, 40, 8]);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   };
 
-  const setDraft = (catId: string, patch: Partial<{ label: string; value: string; emoji: string }>) =>
+  const setDraft = (
+    catId: string,
+    patch: Partial<{ label: string; value: string; emoji: string }>,
+  ) =>
     setDrafts((d) => {
       const cur = d[catId] ?? { label: "", value: "", emoji: "" };
       return { ...d, [catId]: { ...cur, ...patch } };
@@ -62,7 +89,10 @@ function Index() {
   const totalSelected = b.selectedTokens.length;
 
   const clearLongPress = () => {
-    if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
     pressStart.current = null;
   };
 
@@ -103,36 +133,19 @@ function Index() {
     if (draggingId) {
       setDraggingId(null);
       // keep justDragged true briefly to swallow the click that follows
-      setTimeout(() => { justDragged.current = false; }, 50);
+      setTimeout(() => {
+        justDragged.current = false;
+      }, 50);
     }
   };
 
   const handleToggleOpen = (catId: string) => {
-    if (justDragged.current) { justDragged.current = false; return; }
+    if (justDragged.current) {
+      justDragged.current = false;
+      return;
+    }
     setOpen((o) => ({ ...o, [catId]: !o[catId] }));
   };
-
-  // Get the 4 most used tokens for each category
-  const getMostUsedTokens = (categoryId: string) => {
-    const category = CATEGORIES.find(c => c.id === categoryId);
-    if (!category) return [];
-    
-    // For demo purposes, we'll use a fixed set of "most used" tokens
-    // In a real app, this would be based on usage analytics
-    const mostUsedIds = [
-      's1', 's2', 's3', 's4', // Subject
-      'st1', 'st2', 'st3', 'st4', // Style
-      'l1', 'l2', 'l3', 'l4', // Lighting
-      'c1', 'c2', 'c3', 'c4', // Camera
-      'm1', 'm2', 'm3', 'm4', // Mood
-      'e1', 'e2', 'e3', 'e4', // Setting
-      'q1', 'q2', 'q3', 'q4'  // Quality
-    ];
-    
-    return category.tokens.filter(token => mostUsedIds.includes(token.id));
-  };
-
-
 
   return (
     <div className="min-h-screen pb-56">
@@ -140,12 +153,17 @@ function Index() {
       <header className="sticky top-0 z-30 border-b border-border/60 bg-background/70 backdrop-blur-xl">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
           <div className="flex items-center gap-2.5">
-            <div className="grid h-9 w-9 place-items-center rounded-xl shadow-neon" style={{ background: "var(--gradient-neon)" }}>
-              <Sparkles className="h-5 w-5 text-background" strokeWidth={2.5} />
+            <div
+              className="grid h-9 w-9 place-items-center rounded-xl shadow-neon"
+              style={{ background: "var(--gradient-neon)" }}
+            >
+              <Sparkles className="h-5 w-5 text-primary-foreground" strokeWidth={2.5} />
             </div>
             <div>
               <h1 className="text-base font-semibold tracking-tight">PromptDeck</h1>
-              <p className="text-[11px] uppercase tracking-widest text-muted-foreground">the lego set for ai art</p>
+              <p className="text-[11px] uppercase tracking-widest text-muted-foreground">
+                the lego set for ai art
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -202,7 +220,9 @@ function Index() {
           </button>
         </div>
         <p className="mt-3 px-1 text-xs text-muted-foreground">
-          {totalSelected === 0 ? "Tap tokens to build your prompt →" : `${totalSelected} token${totalSelected === 1 ? "" : "s"} selected across ${Object.values(b.selections).filter((v) => v.length).length} categories`}
+          {totalSelected === 0
+            ? "Tap tokens to build your prompt →"
+            : `${totalSelected} token${totalSelected === 1 ? "" : "s"} selected across ${Object.values(b.selections).filter((v) => v.length).length} categories`}
         </p>
       </div>
 
@@ -215,8 +235,7 @@ function Index() {
           const removedCount = (b.removed[cat.id] ?? []).length;
           const draft = drafts[cat.id] ?? { label: "", value: "", emoji: "" };
           const isDragging = draggingId === cat.id;
-          const mostUsedTokens = getMostUsedTokens(cat.id);
-          
+
           return (
             <section
               key={cat.id}
@@ -232,7 +251,10 @@ function Index() {
                   : "border-border",
                 draggingId && !isDragging && "opacity-70",
               )}
-              style={{ boxShadow: !isDragging && selectedIds.length ? "var(--shadow-neon)" : undefined, touchAction: draggingId ? "none" : undefined }}
+              style={{
+                boxShadow: !isDragging && selectedIds.length ? "var(--shadow-neon)" : undefined,
+                touchAction: draggingId ? "none" : undefined,
+              }}
             >
               <span
                 aria-hidden
@@ -263,10 +285,12 @@ function Index() {
                   <p className="text-xs text-muted-foreground">{cat.description}</p>
                 </div>
                 <ChevronDown
-                  className={cn("h-5 w-5 text-muted-foreground transition-transform duration-300", isOpen && "rotate-180")}
+                  className={cn(
+                    "h-5 w-5 text-muted-foreground transition-transform duration-300",
+                    isOpen && "rotate-180",
+                  )}
                 />
               </button>
-
 
               <div
                 className={cn(
@@ -276,64 +300,14 @@ function Index() {
               >
                 <div className="overflow-hidden">
                   <div className="flex flex-wrap gap-2 px-4 pb-4">
-                    {/* All tokens displayed as dropdown list when expanded */}
-                    {isOpen && (
-                      <div className="relative w-full">
-                        <select
-                          onChange={(e) => {
-                            if (e.target.value && !editMode) {
-                              b.toggle(cat.id, e.target.value);
-                              e.target.value = "";
-                            }
-                          }}
-                          className="w-full rounded-2xl border border-border bg-background/60 px-3 py-2 text-sm font-medium text-foreground/80 hover:border-primary/40 hover:text-foreground transition"
-                        >
-                          <option value="">Select a token...</option>
-                          {tokens.map((t) => (
-                            <option key={t.id} value={t.id}>
-                              {t.emoji} {t.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-
-                    {/* Show 4 most used tokens directly in expanded pane */}
-                    {isOpen && mostUsedTokens.length > 0 && (
-                      <div className="mt-2 w-full">
-                        <p className="text-xs text-muted-foreground mb-1">Most Used:</p>
-                        <div className="flex flex-wrap gap-2">
-                          {mostUsedTokens.map((token) => {
-                            const active = selectedIds.includes(token.id);
-                            return (
-                              <button
-                                key={token.id}
-                                onClick={() => (editMode ? b.removeToken(cat.id, token.id) : b.toggle(cat.id, token.id))}
-                                className={cn(
-                                  "flex flex-col items-center gap-1 rounded-xl border px-2 py-2 text-xs transition-all active:scale-95",
-                                  editMode
-                                    ? "border-destructive/40 bg-destructive/5 text-foreground/80 hover:border-destructive hover:bg-destructive/15 hover:text-destructive"
-                                    : active
-                                      ? "border-primary bg-primary/15 text-primary shadow-neon"
-                                      : "border-border bg-background/40 text-foreground/80 hover:border-primary/40 hover:text-foreground",
-                                )}
-                              >
-                                <span className="text-lg">{token.emoji}</span>
-                                <span className="truncate max-w-[60px]">{token.label}</span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* All tokens displayed as regular buttons when not expanded */}
-                    {!isOpen && tokens.map((t) => {
+                    {tokens.map((t) => {
                       const active = selectedIds.includes(t.id);
                       return (
                         <div key={t.id} className="relative">
                           <button
-                            onClick={() => (editMode ? b.removeToken(cat.id, t.id) : b.toggle(cat.id, t.id))}
+                            onClick={() =>
+                              editMode ? b.removeToken(cat.id, t.id) : b.toggle(cat.id, t.id)
+                            }
                             className={cn(
                               "group flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm font-medium transition-all duration-200 active:scale-95",
                               editMode
@@ -345,7 +319,9 @@ function Index() {
                           >
                             <span className="text-base leading-none">{t.emoji}</span>
                             <span>{t.label}</span>
-                            {!editMode && active && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
+                            {!editMode && active && (
+                              <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                            )}
                           </button>
                           {editMode && (
                             <span className="pointer-events-none absolute right-2 top-1/2 grid h-4 w-4 -translate-y-1/2 place-items-center rounded-full bg-destructive/80 text-background">
@@ -356,14 +332,18 @@ function Index() {
                       );
                     })}
                     {tokens.length === 0 && !editMode && (
-                      <p className="text-xs text-muted-foreground">All tokens removed. Enable Edit to add your own.</p>
+                      <p className="text-xs text-muted-foreground">
+                        All tokens removed. Enable Edit to add your own.
+                      </p>
                     )}
                   </div>
 
                   {editMode && (
                     <div className="mx-4 mb-4 space-y-2 rounded-2xl border border-dashed border-primary/40 bg-primary/5 p-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-primary">Add token</span>
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-primary">
+                          Add token
+                        </span>
                         {removedCount > 0 && (
                           <button
                             onClick={() => b.restoreCategory(cat.id)}
@@ -380,22 +360,24 @@ function Index() {
                           onChange={(e) => setDraft(cat.id, { emoji: e.target.value })}
                           placeholder="✨"
                           maxLength={2}
-                          className="w-12 rounded-xl border border-border bg-background/60 px-2 py-2 text-center text-base outline-none focus:border-primary"
+                          className="w-12 rounded-xl border border-border bg-background/60 px-2 py-2 text-center text-base outline-none focus:border-primary focus:shadow-neon"
                         />
                         <input
                           value={draft.label}
                           onChange={(e) => setDraft(cat.id, { label: e.target.value })}
                           placeholder="Label (e.g. Noir)"
-                          className="flex-1 rounded-xl border border-border bg-background/60 px-3 py-2 text-sm outline-none focus:border-primary"
+                          className="flex-1 rounded-xl border border-border bg-background/60 px-3 py-2 text-sm outline-none focus:border-primary focus:shadow-neon"
                         />
                       </div>
                       <div className="flex gap-2">
                         <input
                           value={draft.value}
                           onChange={(e) => setDraft(cat.id, { value: e.target.value })}
-                          onKeyDown={(e) => { if (e.key === "Enter") submitDraft(cat.id); }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") submitDraft(cat.id);
+                          }}
                           placeholder="Prompt text (optional — defaults to label)"
-                          className="flex-1 rounded-xl border border-border bg-background/60 px-3 py-2 text-sm outline-none focus:border-primary"
+                          className="flex-1 rounded-xl border border-border bg-background/60 px-3 py-2 text-sm outline-none focus:border-primary focus:shadow-neon"
                         />
                         <button
                           onClick={() => submitDraft(cat.id)}
@@ -444,15 +426,19 @@ function Index() {
             onClick={copy}
             disabled={!b.prompt}
             className={cn(
-              "mt-2.5 flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold text-background transition-all active:scale-[0.98] disabled:opacity-40",
+              "mt-2.5 flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold text-primary-foreground transition-all active:scale-[0.98] disabled:opacity-40",
               copied ? "" : "shadow-neon",
             )}
             style={{ background: copied ? "oklch(0.75 0.18 145)" : "var(--gradient-neon)" }}
           >
             {copied ? (
-              <><Check className="h-4 w-4" strokeWidth={3} /> Copied!</>
+              <>
+                <Check className="h-4 w-4" strokeWidth={3} /> Copied!
+              </>
             ) : (
-              <><Copy className="h-4 w-4" /> Copy Prompt</>
+              <>
+                <Copy className="h-4 w-4" /> Copy Prompt
+              </>
             )}
           </button>
         </div>
@@ -469,23 +455,36 @@ function Index() {
             <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-border" />
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-lg font-semibold">Saved Prompts</h3>
-              <button onClick={() => setShowFavs(false)} className="grid h-9 w-9 place-items-center rounded-xl border border-border">
+              <button
+                onClick={() => setShowFavs(false)}
+                className="grid h-9 w-9 place-items-center rounded-xl border border-border"
+              >
                 <X className="h-4 w-4" />
               </button>
             </div>
             {b.favorites.length === 0 ? (
               <div className="py-12 text-center text-sm text-muted-foreground">
                 <Heart className="mx-auto mb-3 h-8 w-8 opacity-40" />
-                No saved prompts yet.<br />Tap Save on the bar below to bookmark a look.
+                No saved prompts yet.
+                <br />
+                Tap Save on the bar below to bookmark a look.
               </div>
             ) : (
               <ul className="space-y-2 pb-6">
                 {b.favorites.map((f) => (
-                  <li key={f.id} className="group rounded-2xl border border-border bg-background/50 p-3">
-                    <p className="mb-2 font-mono text-xs leading-relaxed text-foreground/90">{f.prompt}</p>
+                  <li
+                    key={f.id}
+                    className="group rounded-2xl border border-border bg-background/50 p-3"
+                  >
+                    <p className="mb-2 font-mono text-xs leading-relaxed text-foreground/90">
+                      {f.prompt}
+                    </p>
                     <div className="flex gap-2">
                       <button
-                        onClick={() => { b.loadFavorite(f); setShowFavs(false); }}
+                        onClick={() => {
+                          b.loadFavorite(f);
+                          setShowFavs(false);
+                        }}
                         className="flex-1 rounded-lg bg-primary/15 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/25"
                       >
                         Load
