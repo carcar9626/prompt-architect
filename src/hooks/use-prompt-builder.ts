@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CATEGORIES, type Token } from "@/lib/prompt-data";
+import { CATEGORIES, type Category, type Token } from "@/lib/prompt-data";
 
 type Selections = Record<string, string[]>;
 type Favorite = { id: string; prompt: string; selections: Selections; createdAt: number };
@@ -15,9 +15,11 @@ type BackupData = {
   removed: RemovedTokens;
   order: string[];
   recent: RecentTokens;
+  customCategories: Category[];
+  removedCategoryIds: string[];
 };
 
-const BACKUP_VERSION = 1;
+const BACKUP_VERSION = 2;
 
 const STORAGE_KEY = "promptdeck:selections";
 const FAV_KEY = "promptdeck:favorites";
@@ -25,6 +27,8 @@ const CUSTOM_KEY = "promptdeck:custom";
 const REMOVED_KEY = "promptdeck:removed";
 const ORDER_KEY = "promptdeck:order";
 const RECENT_KEY = "promptdeck:recent";
+const CUSTOM_CATEGORIES_KEY = "promptdeck:customCategories";
+const REMOVED_CATEGORIES_KEY = "promptdeck:removedCategories";
 const RECENT_PER_CATEGORY = 4;
 
 const haptic = (ms = 8) => {
@@ -67,7 +71,16 @@ export function usePromptBuilder() {
   const [removed, setRemoved] = useState<RemovedTokens>({});
   const [order, setOrder] = useState<string[]>(() => CATEGORIES.map((c) => c.id));
   const [recent, setRecent] = useState<RecentTokens>({});
+  const [customCategories, setCustomCategories] = useState<Category[]>([]);
+  const [removedCategoryIds, setRemovedCategoryIds] = useState<string[]>([]);
   const [hydrated, setHydrated] = useState(false);
+
+  // All known category ids — built-ins minus hidden ones, plus any custom ones —
+  // used to keep `order` in sync whenever the category set changes.
+  const allCategories = useMemo(() => {
+    const removedSet = new Set(removedCategoryIds);
+    return [...CATEGORIES.filter((c) => !removedSet.has(c.id)), ...customCategories];
+  }, [customCategories, removedCategoryIds]);
 
   useEffect(() => {
     try {
@@ -79,18 +92,37 @@ export function usePromptBuilder() {
       if (c) setCustom(JSON.parse(c));
       const r = localStorage.getItem(REMOVED_KEY);
       if (r) setRemoved(JSON.parse(r));
+      const rc = localStorage.getItem(RECENT_KEY);
+      if (rc) setRecent(JSON.parse(rc));
+
+      let loadedCustomCategories: Category[] = [];
+      const cc = localStorage.getItem(CUSTOM_CATEGORIES_KEY);
+      if (cc) {
+        loadedCustomCategories = JSON.parse(cc);
+        setCustomCategories(loadedCustomCategories);
+      }
+      let loadedRemovedCategoryIds: string[] = [];
+      const rcat = localStorage.getItem(REMOVED_CATEGORIES_KEY);
+      if (rcat) {
+        loadedRemovedCategoryIds = JSON.parse(rcat);
+        setRemovedCategoryIds(loadedRemovedCategoryIds);
+      }
+
       const o = localStorage.getItem(ORDER_KEY);
       if (o) {
         const parsed: string[] = JSON.parse(o);
-        const known = new Set(CATEGORIES.map((c) => c.id));
+        const removedSet = new Set(loadedRemovedCategoryIds);
+        const allIds = [
+          ...CATEGORIES.filter((cat) => !removedSet.has(cat.id)).map((cat) => cat.id),
+          ...loadedCustomCategories.map((cat) => cat.id),
+        ];
+        const known = new Set(allIds);
         const merged = [
           ...parsed.filter((id) => known.has(id)),
-          ...CATEGORIES.map((c) => c.id).filter((id) => !parsed.includes(id)),
+          ...allIds.filter((id) => !parsed.includes(id)),
         ];
         setOrder(merged);
       }
-      const rc = localStorage.getItem(RECENT_KEY);
-      if (rc) setRecent(JSON.parse(rc));
     } catch {
       /* ignore */
     }
@@ -115,17 +147,33 @@ export function usePromptBuilder() {
   useEffect(() => {
     if (hydrated) localStorage.setItem(RECENT_KEY, JSON.stringify(recent));
   }, [recent, hydrated]);
+  useEffect(() => {
+    if (hydrated) localStorage.setItem(CUSTOM_CATEGORIES_KEY, JSON.stringify(customCategories));
+  }, [customCategories, hydrated]);
+  useEffect(() => {
+    if (hydrated) localStorage.setItem(REMOVED_CATEGORIES_KEY, JSON.stringify(removedCategoryIds));
+  }, [removedCategoryIds, hydrated]);
+
+  // Custom categories take precedence on id collision, so a custom category can
+  // fully stand in for a built-in one (e.g. a hidden built-in "subject" plus an
+  // imported custom "subject" resolves to the custom one, not the hidden built-in).
+  const findCategoryDef = useCallback(
+    (categoryId: string): Category | undefined =>
+      customCategories.find((c) => c.id === categoryId) ??
+      CATEGORIES.find((c) => c.id === categoryId),
+    [customCategories],
+  );
 
   const tokensFor = useCallback(
     (categoryId: string): Token[] => {
-      const cat = CATEGORIES.find((c) => c.id === categoryId);
+      const cat = findCategoryDef(categoryId);
       const base = cat ? cat.tokens : [];
       const rem = new Set(removed[categoryId] ?? []);
       const kept = base.filter((t) => !rem.has(t.id));
       const extras = custom[categoryId] ?? [];
       return [...kept, ...extras];
     },
-    [custom, removed],
+    [custom, removed, findCategoryDef],
   );
 
   const recentTokensFor = useCallback(
@@ -167,30 +215,33 @@ export function usePromptBuilder() {
     [selections],
   );
 
-  const removeToken = useCallback((categoryId: string, tokenId: string) => {
-    haptic(12);
-    // If it's a custom token, drop from custom; otherwise mark preset as removed.
-    setCustom((prev) => {
-      const list = prev[categoryId] ?? [];
-      if (list.some((t) => t.id === tokenId)) {
-        return { ...prev, [categoryId]: list.filter((t) => t.id !== tokenId) };
-      }
-      return prev;
-    });
-    setRemoved((prev) => {
-      const cat = CATEGORIES.find((c) => c.id === categoryId);
-      const isPreset = cat?.tokens.some((t) => t.id === tokenId);
-      if (!isPreset) return prev;
-      const cur = prev[categoryId] ?? [];
-      if (cur.includes(tokenId)) return prev;
-      return { ...prev, [categoryId]: [...cur, tokenId] };
-    });
-    setSelections((prev) => {
-      const cur = prev[categoryId] ?? [];
-      if (!cur.includes(tokenId)) return prev;
-      return { ...prev, [categoryId]: cur.filter((x) => x !== tokenId) };
-    });
-  }, []);
+  const removeToken = useCallback(
+    (categoryId: string, tokenId: string) => {
+      haptic(12);
+      // If it's a custom token, drop from custom; otherwise mark preset as removed.
+      setCustom((prev) => {
+        const list = prev[categoryId] ?? [];
+        if (list.some((t) => t.id === tokenId)) {
+          return { ...prev, [categoryId]: list.filter((t) => t.id !== tokenId) };
+        }
+        return prev;
+      });
+      setRemoved((prev) => {
+        const cat = findCategoryDef(categoryId);
+        const isPreset = cat?.tokens.some((t) => t.id === tokenId);
+        if (!isPreset) return prev;
+        const cur = prev[categoryId] ?? [];
+        if (cur.includes(tokenId)) return prev;
+        return { ...prev, [categoryId]: [...cur, tokenId] };
+      });
+      setSelections((prev) => {
+        const cur = prev[categoryId] ?? [];
+        if (!cur.includes(tokenId)) return prev;
+        return { ...prev, [categoryId]: cur.filter((x) => x !== tokenId) };
+      });
+    },
+    [findCategoryDef],
+  );
 
   const addToken = useCallback(
     (categoryId: string, label: string, value?: string, emoji?: string) => {
@@ -219,9 +270,9 @@ export function usePromptBuilder() {
   }, []);
 
   const orderedCategories = useMemo(() => {
-    const map = new Map(CATEGORIES.map((c) => [c.id, c]));
+    const map = new Map(allCategories.map((c) => [c.id, c]));
     const seen = new Set<string>();
-    const out: typeof CATEGORIES = [];
+    const out: Category[] = [];
     for (const id of order) {
       const c = map.get(id);
       if (c && !seen.has(id)) {
@@ -229,24 +280,27 @@ export function usePromptBuilder() {
         seen.add(id);
       }
     }
-    for (const c of CATEGORIES) if (!seen.has(c.id)) out.push(c);
+    for (const c of allCategories) if (!seen.has(c.id)) out.push(c);
     return out;
-  }, [order]);
+  }, [order, allCategories]);
 
-  const moveCategory = useCallback((fromId: string, toId: string) => {
-    if (fromId === toId) return;
-    setOrder((prev) => {
-      const ids = prev.length ? [...prev] : CATEGORIES.map((c) => c.id);
-      // ensure both exist
-      for (const c of CATEGORIES) if (!ids.includes(c.id)) ids.push(c.id);
-      const from = ids.indexOf(fromId);
-      const to = ids.indexOf(toId);
-      if (from === -1 || to === -1) return prev;
-      ids.splice(from, 1);
-      ids.splice(to, 0, fromId);
-      return ids;
-    });
-  }, []);
+  const moveCategory = useCallback(
+    (fromId: string, toId: string) => {
+      if (fromId === toId) return;
+      setOrder((prev) => {
+        const ids = prev.length ? [...prev] : allCategories.map((c) => c.id);
+        // ensure both exist
+        for (const c of allCategories) if (!ids.includes(c.id)) ids.push(c.id);
+        const from = ids.indexOf(fromId);
+        const to = ids.indexOf(toId);
+        if (from === -1 || to === -1) return prev;
+        ids.splice(from, 1);
+        ids.splice(to, 0, fromId);
+        return ids;
+      });
+    },
+    [allCategories],
+  );
 
   const randomize = useCallback(() => {
     haptic(25);
@@ -315,13 +369,17 @@ export function usePromptBuilder() {
       removed,
       order,
       recent,
+      customCategories,
+      removedCategoryIds,
     }),
-    [selections, favorites, custom, removed, order, recent],
+    [selections, favorites, custom, removed, order, recent, customCategories, removedCategoryIds],
   );
 
   // Best-effort shape check on untrusted imported JSON — falls back to safe
   // defaults for any field that's missing or the wrong type rather than
-  // rejecting the whole file over one bad field.
+  // rejecting the whole file over one bad field. customCategories/
+  // removedCategoryIds are optional (absent in pre-v2 backups) and default
+  // to empty so older exports still import cleanly.
   const importData = useCallback((data: unknown): boolean => {
     if (!data || typeof data !== "object") return false;
     const d = data as Partial<BackupData>;
@@ -335,17 +393,26 @@ export function usePromptBuilder() {
       d.removed === null ||
       !Array.isArray(d.order) ||
       typeof d.recent !== "object" ||
-      d.recent === null
+      d.recent === null ||
+      (d.customCategories !== undefined && !Array.isArray(d.customCategories)) ||
+      (d.removedCategoryIds !== undefined && !Array.isArray(d.removedCategoryIds))
     ) {
       return false;
     }
     haptic(20);
+    const nextCustomCategories = d.customCategories ?? [];
     setSelections(d.selections as Selections);
     setFavorites(d.favorites as Favorite[]);
     setCustom(d.custom as CustomTokens);
     setRemoved(d.removed as RemovedTokens);
-    setOrder(d.order.length ? (d.order as string[]) : CATEGORIES.map((c) => c.id));
     setRecent(d.recent as RecentTokens);
+    setCustomCategories(nextCustomCategories);
+    setRemovedCategoryIds(d.removedCategoryIds ?? []);
+    setOrder(
+      d.order.length
+        ? (d.order as string[])
+        : [...CATEGORIES.map((c) => c.id), ...nextCustomCategories.map((c) => c.id)],
+    );
     return true;
   }, []);
 
