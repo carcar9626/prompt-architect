@@ -52,7 +52,7 @@
 }
 
 /* Card & Container Layouts */
-.dyad-card, .card {
+.card {
   background-color: var(--color-card);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-lg);
@@ -97,6 +97,8 @@ body {
   color: var(--color-text-main);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  margin: 0;
+  padding: 0;
 }
 
 /* Background with subtle radial gradients */
@@ -114,24 +116,29 @@ body::before {
   z-index: -1;
 }
 
-/* Card styling using theme variables */
-.card {
-  background-color: var(--color-card);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
+/* Ensure all elements use theme variables */
+* {
+  --background: var(--color-background);
+  --surface: var(--color-surface);
+  --card: var(--color-card);
+  --popover: var(--color-popover);
+  --primary: var(--color-primary);
+  --primary-foreground: var(--color-primary-foreground);
+  --secondary: var(--color-secondary);
+  --secondary-foreground: var(--color-secondary-foreground);
+  --accent: var(--color-accent);
+  --destructive: var(--color-destructive);
+  --border: var(--color-border);
+  --ring: var(--color-ring);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --text-main: var(--color-text-main);
+  --text-muted: var(--color-text-muted);
+  --text-subtle: var(--color-text-subtle);
 }
 
-/* Button styling using theme variables */
-button {
-  background-color: var(--color-surface);
-  border: 1px solid var(--color-border);
+/* Ensure the main container uses theme variables */
+main {
+  background-color: var(--color-background);
   color: var(--color-text-main);
-  border-radius: var(--radius-md);
-}
-
-/* Focus states for interactive elements */
-*:focus-visible {
-  outline: 2px solid var(--color-ring);
-  outline-offset: 2px;
 }
