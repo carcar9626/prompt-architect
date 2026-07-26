@@ -2,7 +2,7 @@
 
 @theme {
   /* Surface & Background Colors */
-  --color-background: #0B0F17;
+  --color-background: #0F0E13;
   --color-surface: #111827;
   --color-surface-hover: #1E293B;
   --color-card: #161B22;
@@ -16,8 +16,8 @@
   --color-text-subtle: #64748B;
 
   /* Brand Accents */
-  --color-primary: #00F2FE;
-  --color-primary-hover: #38BDF8;
+  --color-primary: #8C52FF;
+  --color-primary-hover: #9D68FF;
   --color-primary-foreground: #020617;
   
   --color-secondary: #6366F1;
@@ -25,14 +25,14 @@
   --color-secondary-foreground: #FFFFFF;
 
   /* Interactive States & Badges */
-  --color-accent: #3c417c;
-  --color-accent-subtle: rgba(60, 65, 124, 0.12);
+  --color-accent: #8C52FF;
+  --color-accent-subtle: rgba(140, 82, 255, 0.12);
   --color-destructive: #EF4444;
 
   /* Borders & Focus Rings */
-  --color-border: #334155;
+  --color-border: #252131;
   --color-border-subtle: rgba(255, 255, 255, 0.08);
-  --color-ring: #00F2FE;
+  --color-ring: #8C52FF;
 
   /* Component Radii & Shadows */
   --radius-sm: 0.375rem;
@@ -40,7 +40,7 @@
   --radius-lg: 0.75rem;
   --radius-pill: 9999px;
   
-  --shadow-glow: 0 0 20px rgba(0, 242, 254, 0.15);
+  --shadow-glow: 0 0 16px rgba(140, 82, 255, 0.4);
   --shadow-card: 0 4px 20px -2px rgba(0, 0, 0, 0.5);
 }
 
@@ -54,7 +54,7 @@
 /* Card & Container Layouts */
 .card {
   background-color: var(--color-card);
-  border: 1px solid var(--color-border-subtle);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
 }
@@ -110,8 +110,8 @@ body::before {
   width: 100%;
   height: 100%;
   background-image:
-    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(0, 242, 254, 0.08), transparent),
-    radial-gradient(ellipse 60% 50% at 90% 100%, rgba(60, 65, 124, 0.06), transparent);
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(140, 82, 255, 0.08), transparent),
+    radial-gradient(ellipse 60% 50% at 90% 100%, rgba(140, 82, 255, 0.06), transparent);
   background-attachment: fixed;
   z-index: -1;
 }
@@ -141,4 +141,96 @@ body::before {
 main {
   background-color: var(--color-background);
   color: var(--color-text-main);
+}
+
+/* Toggle switch styling */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 24px;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #2A2735;
+  transition: .4s;
+  border-radius: 24px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  transition: .4s;
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-color: var(--color-primary);
+}
+
+input:checked + .slider:before {
+  transform: translateX(26px);
+}
+
+/* Active row highlight */
+.active-row {
+  border: 1px solid rgba(140, 82, 255, 0.5) !important;
+}
+
+/* Action buttons */
+.generate-prompt-btn {
+  background-color: var(--color-primary);
+  color: white;
+  border-radius: var(--radius-pill);
+  padding: 1rem 1.5rem;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  box-shadow: var(--shadow-glow);
+  transition: all 0.2s ease;
+}
+
+.generate-prompt-btn:hover {
+  background-color: var(--color-primary-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(140, 82, 255, 0.6);
+}
+
+.copy-prompt-btn {
+  background-color: var(--color-primary);
+  color: white;
+  border-radius: var(--radius-pill);
+  padding: 0.75rem 1.5rem;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  box-shadow: var(--shadow-glow);
+  transition: all 0.2s ease;
+}
+
+.copy-prompt-btn:hover {
+  background-color: var(--color-primary-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(140, 82, 255, 0.6);
 }
