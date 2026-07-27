@@ -337,16 +337,24 @@ export function usePromptBuilder() {
     return out;
   }, [selections, tokensFor, orderedCategories]);
 
-  const saveFavorite = useCallback(() => {
-    if (!prompt) return;
-    haptic(15);
-    setFavorites((prev) =>
-      [{ id: crypto.randomUUID(), prompt, selections, createdAt: Date.now() }, ...prev].slice(
-        0,
-        50,
-      ),
-    );
-  }, [prompt, selections]);
+  // `promptOverride` lets the caller save hand-edited text (e.g. the user
+  // tweaked the Live Prompt box directly) instead of the token-derived
+  // `prompt`. `selections` are stored either way, so Load still restores the
+  // original token picks even when the saved text diverged from them.
+  const saveFavorite = useCallback(
+    (promptOverride?: string) => {
+      const text = (promptOverride ?? prompt).trim();
+      if (!text) return;
+      haptic(15);
+      setFavorites((prev) =>
+        [
+          { id: crypto.randomUUID(), prompt: text, selections, createdAt: Date.now() },
+          ...prev,
+        ].slice(0, 50),
+      );
+    },
+    [prompt, selections],
+  );
 
   const loadFavorite = useCallback((fav: Favorite) => {
     haptic(15);

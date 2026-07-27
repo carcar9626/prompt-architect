@@ -77,6 +77,8 @@ function Index() {
   const [importError, setImportError] = useState(false);
   const [pendingRemoval, setPendingRemoval] = useState<Record<string, string[]>>({});
   const [promptHeight, setPromptHeight] = useState(PROMPT_DEFAULT_H);
+  const [promptDraft, setPromptDraft] = useState("");
+  const [promptDirty, setPromptDirty] = useState(false);
   const [drawerHeight, setDrawerHeight] = useState<number | null>(null);
   const [recentSnapshots, setRecentSnapshots] = useState<Record<string, Token[]>>({});
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -99,10 +101,23 @@ function Index() {
     return () => clearTimeout(t);
   }, [importError]);
 
+  // Once the user types directly into the Live Prompt box, it detaches from
+  // the token-derived prompt (which would otherwise silently overwrite their
+  // edit on the next selection change) until they hit Reset or Clear All.
+  const displayedPrompt = promptDirty ? promptDraft : b.prompt;
+  const handlePromptEdit = (e: ChangeEvent<HTMLTextAreaElement>) => {
+    setPromptDraft(e.target.value);
+    setPromptDirty(true);
+  };
+  const resetPromptEdit = () => {
+    setPromptDirty(false);
+    setPromptDraft("");
+  };
+
   const copy = async () => {
-    if (!b.prompt) return;
+    if (!displayedPrompt) return;
     try {
-      await navigator.clipboard.writeText(b.prompt);
+      await navigator.clipboard.writeText(displayedPrompt);
       setCopied(true);
       if ("vibrate" in navigator) navigator.vibrate?.([8, 40, 8]);
     } catch {
@@ -442,7 +457,10 @@ function Index() {
             Surprise Me
           </button>
           <button
-            onClick={b.clearAll}
+            onClick={() => {
+              b.clearAll();
+              resetPromptEdit();
+            }}
             disabled={totalSelected === 0}
             className="flex items-center justify-center gap-2 rounded-xl border border-border bg-card/60 px-4 py-3 text-sm font-medium text-muted-foreground transition hover:border-destructive/50 hover:text-destructive disabled:opacity-40 active:scale-95"
           >
@@ -705,6 +723,14 @@ function Index() {
               Live Prompt
             </span>
             <div className="flex items-center gap-1.5">
+              {promptDirty && (
+                <button
+                  onClick={resetPromptEdit}
+                  className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground transition hover:text-primary"
+                >
+                  Reset
+                </button>
+              )}
               <button
                 onClick={togglePromptExpanded}
                 aria-label={isPromptExpanded ? "Collapse live prompt" : "Expand live prompt"}
@@ -717,27 +743,24 @@ function Index() {
                 )}
               </button>
               <button
-                onClick={b.saveFavorite}
-                disabled={!b.prompt}
+                onClick={() => b.saveFavorite(displayedPrompt)}
+                disabled={!displayedPrompt}
                 className="flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition hover:border-primary/50 hover:text-primary disabled:opacity-40"
               >
                 <Heart className="h-3 w-3" /> Save
               </button>
             </div>
           </div>
-          <div
+          <textarea
+            value={displayedPrompt}
+            onChange={handlePromptEdit}
+            placeholder="Your prompt will appear here…"
             style={{ height: promptHeight }}
-            className="overflow-y-auto rounded-2xl border border-border bg-card/60 p-3 font-mono text-[13px] leading-relaxed"
-          >
-            {b.prompt ? (
-              <span className="text-foreground">{b.prompt}</span>
-            ) : (
-              <span className="text-muted-foreground">Your prompt will appear here…</span>
-            )}
-          </div>
+            className="w-full resize-none overflow-y-auto rounded-2xl border border-border bg-card/60 p-3 font-mono text-[13px] leading-relaxed text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/50"
+          />
           <button
             onClick={copy}
-            disabled={!b.prompt}
+            disabled={!displayedPrompt}
             className={cn(
               "mt-2.5 flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold text-primary-foreground transition-all active:scale-[0.98] disabled:opacity-40",
               copied ? "" : "shadow-neon",
@@ -858,6 +881,8 @@ function Index() {
                         <button
                           onClick={() => {
                             b.loadFavorite(f);
+                            setPromptDraft(f.prompt);
+                            setPromptDirty(true);
                             setShowFavs(false);
                           }}
                           className="flex-1 rounded-lg bg-primary/15 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/25"
