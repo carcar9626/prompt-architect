@@ -9,6 +9,9 @@ export type Category = {
   id: string;
   name: string;
   emoji: string;
+  /** Optional path to a custom category icon (e.g. "/icons/subject.svg"),
+   *  served from public/icons/. Falls back to `emoji` when unset. */
+  icon?: string;
   description: string;
   tokens: Token[];
 };

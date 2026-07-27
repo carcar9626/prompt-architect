@@ -503,7 +503,11 @@ function Index() {
                 className="flex w-full items-center gap-3 px-4 py-4 pr-8 text-left"
               >
                 <div className="grid h-11 w-11 place-items-center rounded-2xl border border-border bg-background/60 text-xl">
-                  {cat.emoji}
+                  {cat.icon ? (
+                    <img src={cat.icon} alt="" className="h-5 w-5" />
+                  ) : (
+                    <span>{cat.emoji}</span>
+                  )}
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
