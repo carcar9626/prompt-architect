@@ -48,14 +48,19 @@ export const Route = createFileRoute("/")({
 });
 
 const PROMPT_MIN_H = 56;
-const PROMPT_MAX_H = 420;
 const PROMPT_DEFAULT_H = 96;
-const PROMPT_EXPANDED_H = 280;
-const PROMPT_SNAP_THRESHOLD = (PROMPT_DEFAULT_H + PROMPT_EXPANDED_H) / 2;
+// Non-box chrome inside the fixed pane (handle + label row + copy button +
+// paddings) that expanding shouldn't eat into.
+const PROMPT_CHROME_H = 150;
+const HEADER_FALLBACK_H = 76;
+// A quick flick vs. a slow deliberate drag, in px/ms.
+const FLICK_VELOCITY_THRESHOLD = 0.5;
 
 const DRAWER_MIN_H = 220;
 const DRAWER_DEFAULT_VH = 0.8;
 const DRAWER_EXPANDED_VH = 0.95;
+
+type DragState = { y: number; height: number; lastY: number; lastT: number; velocity: number };
 
 function Index() {
   const b = usePromptBuilder();
@@ -78,8 +83,9 @@ function Index() {
   const pressStart = useRef<{ x: number; y: number } | null>(null);
   const justDragged = useRef(false);
   const importInputRef = useRef<HTMLInputElement | null>(null);
-  const promptDrag = useRef<{ y: number; height: number } | null>(null);
-  const drawerDrag = useRef<{ y: number; height: number } | null>(null);
+  const promptDrag = useRef<DragState | null>(null);
+  const drawerDrag = useRef<DragState | null>(null);
+  const headerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!copied) return;
@@ -257,38 +263,80 @@ function Index() {
     setOpen((o) => ({ ...o, [catId]: willOpen }));
   };
 
+  // As big as it can get without climbing into the sticky header — mirrors
+  // how far the favorites drawer expands, just bounded by the header instead
+  // of the top of the viewport.
+  const getPromptMaxH = () => {
+    const headerH = headerRef.current?.getBoundingClientRect().height ?? HEADER_FALLBACK_H;
+    const viewportH = typeof window !== "undefined" ? window.innerHeight : 800;
+    return Math.max(PROMPT_DEFAULT_H, viewportH - headerH - PROMPT_CHROME_H);
+  };
+
   const onPromptHandlePointerDown = (e: ReactPointerEvent) => {
-    promptDrag.current = { y: e.clientY, height: promptHeight };
+    promptDrag.current = {
+      y: e.clientY,
+      height: promptHeight,
+      lastY: e.clientY,
+      lastT: performance.now(),
+      velocity: 0,
+    };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
   const onPromptHandlePointerMove = (e: ReactPointerEvent) => {
-    if (!promptDrag.current) return;
-    const dy = promptDrag.current.y - e.clientY;
-    setPromptHeight(Math.min(PROMPT_MAX_H, Math.max(PROMPT_MIN_H, promptDrag.current.height + dy)));
+    const drag = promptDrag.current;
+    if (!drag) return;
+    const dy = drag.y - e.clientY;
+    setPromptHeight(Math.min(getPromptMaxH(), Math.max(PROMPT_MIN_H, drag.height + dy)));
+    const now = performance.now();
+    const dt = now - drag.lastT;
+    if (dt > 0) drag.velocity = (drag.lastY - e.clientY) / dt;
+    drag.lastY = e.clientY;
+    drag.lastT = now;
   };
   const onPromptHandlePointerUp = () => {
+    const drag = promptDrag.current;
     promptDrag.current = null;
+    if (drag && Math.abs(drag.velocity) > FLICK_VELOCITY_THRESHOLD) {
+      setPromptHeight(drag.velocity > 0 ? getPromptMaxH() : PROMPT_DEFAULT_H);
+    }
   };
   const togglePromptExpanded = () => {
-    setPromptHeight((h) => (h < PROMPT_SNAP_THRESHOLD ? PROMPT_EXPANDED_H : PROMPT_DEFAULT_H));
+    const max = getPromptMaxH();
+    setPromptHeight((h) => (h < (PROMPT_DEFAULT_H + max) / 2 ? max : PROMPT_DEFAULT_H));
   };
-  const isPromptExpanded = promptHeight >= PROMPT_SNAP_THRESHOLD;
+  const isPromptExpanded = promptHeight >= (PROMPT_DEFAULT_H + getPromptMaxH()) / 2;
 
   const onDrawerHandlePointerDown = (e: ReactPointerEvent) => {
+    const height = drawerHeight ?? window.innerHeight * DRAWER_DEFAULT_VH;
     drawerDrag.current = {
       y: e.clientY,
-      height: drawerHeight ?? window.innerHeight * DRAWER_DEFAULT_VH,
+      height,
+      lastY: e.clientY,
+      lastT: performance.now(),
+      velocity: 0,
     };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
   const onDrawerHandlePointerMove = (e: ReactPointerEvent) => {
-    if (!drawerDrag.current) return;
-    const dy = drawerDrag.current.y - e.clientY;
+    const drag = drawerDrag.current;
+    if (!drag) return;
+    const dy = drag.y - e.clientY;
     const max = window.innerHeight * DRAWER_EXPANDED_VH;
-    setDrawerHeight(Math.min(max, Math.max(DRAWER_MIN_H, drawerDrag.current.height + dy)));
+    setDrawerHeight(Math.min(max, Math.max(DRAWER_MIN_H, drag.height + dy)));
+    const now = performance.now();
+    const dt = now - drag.lastT;
+    if (dt > 0) drag.velocity = (drag.lastY - e.clientY) / dt;
+    drag.lastY = e.clientY;
+    drag.lastT = now;
   };
   const onDrawerHandlePointerUp = () => {
+    const drag = drawerDrag.current;
     drawerDrag.current = null;
+    if (drag && Math.abs(drag.velocity) > FLICK_VELOCITY_THRESHOLD) {
+      const expandedTarget = window.innerHeight * DRAWER_EXPANDED_VH;
+      const defaultTarget = window.innerHeight * DRAWER_DEFAULT_VH;
+      setDrawerHeight(drag.velocity > 0 ? expandedTarget : defaultTarget);
+    }
   };
   const toggleDrawerExpanded = () => {
     const current = drawerHeight ?? window.innerHeight * DRAWER_DEFAULT_VH;
@@ -306,7 +354,10 @@ function Index() {
   return (
     <div className="min-h-screen pb-56">
       {/* Header */}
-      <header className="sticky top-0 z-30 border-b border-border/60 bg-background/70 backdrop-blur-xl">
+      <header
+        ref={headerRef}
+        className="sticky top-0 z-30 border-b border-border/60 bg-background/70 backdrop-blur-xl"
+      >
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
           <div className="flex items-center gap-2.5">
             <div
@@ -638,6 +689,7 @@ function Index() {
           onPointerMove={onPromptHandlePointerMove}
           onPointerUp={onPromptHandlePointerUp}
           onPointerCancel={onPromptHandlePointerUp}
+          onDoubleClick={togglePromptExpanded}
           className="flex touch-none select-none justify-center py-1.5 cursor-ns-resize"
         >
           <span className="h-1 w-10 rounded-full bg-border" />
@@ -714,6 +766,7 @@ function Index() {
               onPointerMove={onDrawerHandlePointerMove}
               onPointerUp={onDrawerHandlePointerUp}
               onPointerCancel={onDrawerHandlePointerUp}
+              onDoubleClick={toggleDrawerExpanded}
               className="flex shrink-0 touch-none select-none justify-center pb-2 pt-3 cursor-ns-resize"
             >
               <span className="h-1 w-10 rounded-full bg-border" />
