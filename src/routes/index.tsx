@@ -533,11 +533,7 @@ function Index() {
                 className="flex w-full items-center gap-3 px-4 py-4 pr-8 text-left"
               >
                 <div className="grid h-11 w-11 place-items-center rounded-2xl border border-border bg-background/60 text-xl">
-                  {catIcon ? (
-                    <img src={catIcon} alt="" className="h-[18px] w-[18px] opacity-90" />
-                  ) : (
-                    <span>{cat.emoji}</span>
-                  )}
+                  <img src={catIcon} alt="" className="h-[18px] w-[18px] opacity-90" />
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
@@ -962,11 +958,7 @@ function Index() {
                       >
                         <span className="flex items-center gap-2">
                           <span className="grid h-5 w-5 shrink-0 place-items-center" aria-hidden>
-                            {catIcon ? (
-                              <img src={catIcon} alt="" className="h-[15px] w-[15px] opacity-90" />
-                            ) : (
-                              <span className="text-sm">{cat.emoji}</span>
-                            )}
+                            <img src={catIcon} alt="" className="h-[15px] w-[15px] opacity-90" />
                           </span>
                           {cat.name}
                         </span>

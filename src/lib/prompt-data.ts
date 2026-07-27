@@ -10,18 +10,25 @@ export type Category = {
   name: string;
   emoji: string;
   /** Optional path to a custom category icon (e.g. "/icons/subject.svg"),
-   *  served from public/icons/. Falls back to `emoji` when unset. */
+   *  served from public/icons/. See `resolveCategoryIcon` for the fallback
+   *  chain — `emoji` is kept on the type for backup-export compatibility but
+   *  is no longer used to render the category icon itself. */
   icon?: string;
   description: string;
   tokens: Token[];
 };
 
+// This is the real 10-category schema — not a placeholder demo set — kept in
+// sync with the personal-catalog backup shape (see
+// use-prompt-builder.ts/BackupData and [[category-schema-contract]] memory).
+// Token content here is generic sample data only; personal catalog content
+// stays out of this public repo and arrives via Import instead.
 export const CATEGORIES: Category[] = [
   {
     id: "subject",
     name: "Subject",
     emoji: "👤",
-    description: "The main focus",
+    description: "Character identity & build",
     tokens: [
       { id: "s1", label: "Warrior", value: "a mythic warrior", emoji: "⚔️" },
       { id: "s2", label: "Astronaut", value: "a lone astronaut", emoji: "👨‍🚀" },
@@ -34,73 +41,41 @@ export const CATEGORIES: Category[] = [
     ],
   },
   {
-    id: "style",
-    name: "Style",
-    emoji: "🎨",
-    description: "Aesthetic direction",
+    id: "outfit",
+    name: "Outfit",
+    emoji: "👗",
+    description: "Clothing & attire",
     tokens: [
-      { id: "st1", label: "Cyberpunk", value: "cyberpunk", emoji: "🌆" },
-      { id: "st2", label: "Studio Ghibli", value: "studio ghibli style", emoji: "🍃" },
-      { id: "st3", label: "Baroque", value: "baroque painting", emoji: "🖼️" },
-      { id: "st4", label: "Vaporwave", value: "vaporwave aesthetic", emoji: "🌴" },
-      { id: "st5", label: "Art Nouveau", value: "art nouveau", emoji: "🌿" },
-      { id: "st6", label: "Pixel Art", value: "16-bit pixel art", emoji: "👾" },
-      { id: "st7", label: "Watercolor", value: "watercolor painting", emoji: "💧" },
-      { id: "st8", label: "Brutalist", value: "brutalist concrete", emoji: "🏛️" },
+      { id: "o1", label: "Streetwear", value: "casual streetwear", emoji: "🧢" },
+      { id: "o2", label: "Business Suit", value: "a tailored business suit", emoji: "🕴️" },
+      { id: "o3", label: "Evening Gown", value: "an elegant evening gown", emoji: "👘" },
+      { id: "o4", label: "Battle Armor", value: "ornate battle armor", emoji: "🛡️" },
+      { id: "o5", label: "Kimono", value: "a traditional kimono", emoji: "🎎" },
+      { id: "o6", label: "Leather Jacket", value: "a worn leather jacket", emoji: "🧥" },
+      { id: "o7", label: "Summer Dress", value: "a light summer dress", emoji: "👒" },
+      { id: "o8", label: "Sportswear", value: "athletic sportswear", emoji: "👟" },
     ],
   },
   {
-    id: "lighting",
-    name: "Lighting",
-    emoji: "💡",
-    description: "How light behaves",
+    id: "pose-action",
+    name: "Pose",
+    emoji: "🕺",
+    description: "Body position & action",
     tokens: [
-      { id: "l1", label: "Cinematic", value: "cinematic lighting", emoji: "🎬" },
-      { id: "l2", label: "Golden Hour", value: "golden hour", emoji: "🌅" },
-      { id: "l3", label: "Neon", value: "neon glow", emoji: "💜" },
-      { id: "l4", label: "Volumetric", value: "volumetric god rays", emoji: "☀️" },
-      { id: "l5", label: "Moonlight", value: "moonlit", emoji: "🌙" },
-      { id: "l6", label: "Studio", value: "softbox studio light", emoji: "📸" },
-      { id: "l7", label: "Bioluminescent", value: "bioluminescent glow", emoji: "🪼" },
-      { id: "l8", label: "Chiaroscuro", value: "chiaroscuro shadows", emoji: "🕯️" },
+      { id: "p1", label: "Standing Tall", value: "standing tall, confident posture", emoji: "🧍" },
+      { id: "p2", label: "Mid-Stride", value: "walking mid-stride", emoji: "🚶" },
+      { id: "p3", label: "Seated", value: "seated, relaxed pose", emoji: "🪑" },
+      { id: "p4", label: "Leaning", value: "leaning against a wall", emoji: "🧱" },
+      { id: "p5", label: "Dynamic Action", value: "mid-action, dynamic pose", emoji: "💥" },
+      { id: "p6", label: "Crouching", value: "crouching low", emoji: "🐆" },
+      { id: "p7", label: "Reaching Up", value: "reaching upward", emoji: "🙆" },
+      { id: "p8", label: "Reclining", value: "reclining pose", emoji: "🛋️" },
     ],
   },
   {
-    id: "camera",
-    name: "Camera",
-    emoji: "📷",
-    description: "Framing and lens",
-    tokens: [
-      { id: "c1", label: "Close-up", value: "extreme close-up", emoji: "🔍" },
-      { id: "c2", label: "Wide Angle", value: "wide angle 24mm", emoji: "🌐" },
-      { id: "c3", label: "Bokeh", value: "shallow depth of field, bokeh", emoji: "✨" },
-      { id: "c4", label: "Aerial", value: "aerial drone shot", emoji: "🚁" },
-      { id: "c5", label: "Macro", value: "macro photography", emoji: "🐜" },
-      { id: "c6", label: "Fisheye", value: "fisheye lens", emoji: "🐟" },
-      { id: "c7", label: "35mm Film", value: "shot on 35mm film", emoji: "🎞️" },
-      { id: "c8", label: "Portrait 85mm", value: "portrait lens 85mm f1.4", emoji: "👤" },
-    ],
-  },
-  {
-    id: "mood",
-    name: "Mood",
-    emoji: "🌀",
-    description: "Emotional tone",
-    tokens: [
-      { id: "m1", label: "Ethereal", value: "ethereal dreamlike", emoji: "☁️" },
-      { id: "m2", label: "Ominous", value: "ominous, foreboding", emoji: "🌫️" },
-      { id: "m3", label: "Serene", value: "serene and calm", emoji: "🕊️" },
-      { id: "m4", label: "Epic", value: "epic grandeur", emoji: "⛰️" },
-      { id: "m5", label: "Nostalgic", value: "nostalgic warmth", emoji: "📻" },
-      { id: "m6", label: "Surreal", value: "surreal dreamscape", emoji: "🌀" },
-      { id: "m7", label: "Melancholic", value: "melancholic solitude", emoji: "🌧️" },
-      { id: "m8", label: "Playful", value: "whimsical and playful", emoji: "🎈" },
-    ],
-  },
-  {
-    id: "setting",
+    id: "scene-setting",
     name: "Setting",
-    emoji: "🏔️",
+    emoji: "🏞️",
     description: "Where it happens",
     tokens: [
       { id: "e1", label: "Neo-Tokyo", value: "in neo-tokyo streets", emoji: "🏙️" },
@@ -114,10 +89,90 @@ export const CATEGORIES: Category[] = [
     ],
   },
   {
-    id: "quality",
-    name: "Quality",
-    emoji: "⚡",
-    description: "Render fidelity",
+    id: "composition",
+    name: "Composition",
+    emoji: "🎬",
+    description: "Framing, lens & camera angle",
+    tokens: [
+      { id: "c1", label: "Close-up", value: "extreme close-up", emoji: "🔍" },
+      { id: "c2", label: "Wide Angle", value: "wide angle 24mm", emoji: "🌐" },
+      { id: "c3", label: "Bokeh", value: "shallow depth of field, bokeh", emoji: "✨" },
+      { id: "c4", label: "Aerial", value: "aerial drone shot", emoji: "🚁" },
+      { id: "c5", label: "Macro", value: "macro photography", emoji: "🐜" },
+      { id: "c6", label: "Fisheye", value: "fisheye lens", emoji: "🐟" },
+      { id: "c7", label: "35mm Film", value: "shot on 35mm film", emoji: "🎞️" },
+      { id: "c8", label: "Portrait 85mm", value: "portrait lens 85mm f1.4", emoji: "👤" },
+    ],
+  },
+  {
+    id: "spatial-addons",
+    name: "Spatial Add-ons",
+    emoji: "✨",
+    description: "Scene-fit & rendering instructions",
+    tokens: [
+      {
+        id: "a1",
+        label: "Seamless Blend",
+        value: "seamlessly blended into the scene",
+        emoji: "🧩",
+      },
+      {
+        id: "a2",
+        label: "Depth Matched",
+        value: "depth and scale matched to the scene",
+        emoji: "📐",
+      },
+      {
+        id: "a3",
+        label: "Soft Contact Shadows",
+        value: "soft contact shadows grounding the subject",
+        emoji: "🌗",
+      },
+      {
+        id: "a4",
+        label: "Color Harmony",
+        value: "color-harmonized with the environment",
+        emoji: "🎨",
+      },
+    ],
+  },
+  {
+    id: "lighting",
+    name: "Lighting",
+    emoji: "💡",
+    description: "Time of day & mood",
+    tokens: [
+      { id: "l1", label: "Cinematic", value: "cinematic lighting", emoji: "🎬" },
+      { id: "l2", label: "Golden Hour", value: "golden hour", emoji: "🌅" },
+      { id: "l3", label: "Neon", value: "neon glow", emoji: "💜" },
+      { id: "l4", label: "Volumetric", value: "volumetric god rays", emoji: "☀️" },
+      { id: "l5", label: "Moonlight", value: "moonlit", emoji: "🌙" },
+      { id: "l6", label: "Studio", value: "softbox studio light", emoji: "📸" },
+      { id: "l7", label: "Bioluminescent", value: "bioluminescent glow", emoji: "🪼" },
+      { id: "l8", label: "Chiaroscuro", value: "chiaroscuro shadows", emoji: "🕯️" },
+    ],
+  },
+  {
+    id: "aesthetic",
+    name: "Aesthetic",
+    emoji: "🎨",
+    description: "Overall render style & finish",
+    tokens: [
+      { id: "st1", label: "Cyberpunk", value: "cyberpunk", emoji: "🌆" },
+      { id: "st2", label: "Studio Ghibli", value: "studio ghibli style", emoji: "🍃" },
+      { id: "st3", label: "Baroque", value: "baroque painting", emoji: "🖼️" },
+      { id: "st4", label: "Vaporwave", value: "vaporwave aesthetic", emoji: "🌴" },
+      { id: "st5", label: "Art Nouveau", value: "art nouveau", emoji: "🌿" },
+      { id: "st6", label: "Pixel Art", value: "16-bit pixel art", emoji: "👾" },
+      { id: "st7", label: "Watercolor", value: "watercolor painting", emoji: "💧" },
+      { id: "st8", label: "Brutalist", value: "brutalist concrete", emoji: "🏛️" },
+    ],
+  },
+  {
+    id: "misc",
+    name: "Misc",
+    emoji: "🗂️",
+    description: "One-off modifiers",
     tokens: [
       { id: "q1", label: "8K", value: "8k ultra detailed", emoji: "🖥️" },
       { id: "q2", label: "Hyperreal", value: "hyperrealistic", emoji: "💎" },
@@ -127,13 +182,19 @@ export const CATEGORIES: Category[] = [
       { id: "q6", label: "Sharp Focus", value: "sharp focus", emoji: "🎯" },
     ],
   },
+  {
+    id: "custom",
+    name: "Custom",
+    emoji: "🔧",
+    description: "Saved presets",
+    tokens: [],
+  },
 ];
 
-// Fixed default icons, keyed by category id — covers both the built-in
-// CATEGORIES above and the personal category ids used by imported
-// customCategories backups (see use-prompt-builder.ts). Not user-editable
-// yet; a category's own `icon` field (once that exists in the UI) will take
-// precedence over this map.
+// Fixed default icons, keyed by category id — the built-in CATEGORIES above
+// use these same ids 1:1, and imported customCategories backups reuse the
+// same ids too. Not user-editable yet; a category's own `icon` field (once
+// that exists in the UI) takes precedence over this map.
 export const DEFAULT_CATEGORY_ICONS: Record<string, string> = {
   subject: "/icons/subject.svg",
   outfit: "/icons/outfit.svg",
@@ -147,22 +208,12 @@ export const DEFAULT_CATEGORY_ICONS: Record<string, string> = {
   custom: "/icons/custom.svg",
 };
 
-// Fallback for any category id outside the sets above — e.g. a category a
-// user creates by hand once that's possible.
+// Fallback for any category id outside the set above — e.g. a category the
+// user creates by hand. Not customizable yet.
 export const NEW_CATEGORY_ICON = "/icons/new.svg";
 
-// The built-in sample categories always show their own `emoji`, never a
-// DEFAULT_CATEGORY_ICONS entry — even though a couple of their ids ("subject",
-// "lighting") collide with ids from the personal catalog below. Those ids are
-// shared on purpose (an imported custom category with the same id fully
-// replaces its built-in counterpart, see use-prompt-builder.ts), but the
-// built-in object itself — returned by `CATEGORIES.find(...)`, e.g. when
-// nothing has been imported — must stay a fixed sample default regardless of
-// what personal-catalog icons exist. Reference identity against CATEGORIES is
-// what tells the two apart, since a same-id custom category is a distinct
-// object.
-export function resolveCategoryIcon(category: Category): string | undefined {
-  if (category.icon) return category.icon;
-  if (CATEGORIES.includes(category)) return undefined;
-  return DEFAULT_CATEGORY_ICONS[category.id] ?? NEW_CATEGORY_ICON;
+// Always resolves to one of the SVG files in public/icons/ — with or without
+// an import — never an emoji fallback, for any of the 10 known category ids.
+export function resolveCategoryIcon(category: Category): string {
+  return category.icon ?? DEFAULT_CATEGORY_ICONS[category.id] ?? NEW_CATEGORY_ICON;
 }
