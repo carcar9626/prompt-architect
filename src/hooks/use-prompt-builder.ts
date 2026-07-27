@@ -74,6 +74,13 @@ export function usePromptBuilder() {
   const [customCategories, setCustomCategories] = useState<Category[]>([]);
   const [removedCategoryIds, setRemovedCategoryIds] = useState<string[]>([]);
   const [hydrated, setHydrated] = useState(false);
+  // Which categories to skip when rerolling — session-only (not persisted),
+  // since it's a per-sitting "what am I locking in right now" choice rather
+  // than a durable preference. Subject defaults to locked since it's usually
+  // the anchor of the prompt.
+  const [lockedCategories, setLockedCategories] = useState<Record<string, boolean>>({
+    subject: true,
+  });
 
   // All known category ids — built-ins minus hidden ones, plus any custom ones —
   // used to keep `order` in sync whenever the category set changes.
@@ -312,6 +319,27 @@ export function usePromptBuilder() {
     setSelections(next);
   }, [tokensFor, orderedCategories]);
 
+  const toggleLock = useCallback((categoryId: string) => {
+    setLockedCategories((prev) => ({ ...prev, [categoryId]: !prev[categoryId] }));
+  }, []);
+
+  // Like `randomize`, but leaves locked categories' current selections untouched
+  // instead of rerolling them.
+  const randomizeUnlocked = useCallback(() => {
+    haptic(25);
+    setSelections((prev) => {
+      const next: Selections = { ...prev };
+      for (const cat of orderedCategories) {
+        if (lockedCategories[cat.id]) continue;
+        const tokens = tokensFor(cat.id);
+        if (!tokens.length) continue;
+        const pick = tokens[Math.floor(Math.random() * tokens.length)];
+        next[cat.id] = [pick.id];
+      }
+      return next;
+    });
+  }, [tokensFor, orderedCategories, lockedCategories]);
+
   const prompt = useMemo(() => {
     const parts: string[] = [];
     for (const cat of orderedCategories) {
@@ -427,6 +455,9 @@ export function usePromptBuilder() {
     toggle,
     clearAll,
     randomize,
+    randomizeUnlocked,
+    lockedCategories,
+    toggleLock,
     prompt,
     selectedTokens,
     favorites,

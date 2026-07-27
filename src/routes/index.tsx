@@ -23,6 +23,9 @@ import {
   Upload,
   Maximize2,
   Minimize2,
+  Dices,
+  Lock,
+  Unlock,
 } from "lucide-react";
 import { CATEGORIES, resolveCategoryIcon, type Token } from "@/lib/prompt-data";
 import { usePromptBuilder } from "@/hooks/use-prompt-builder";
@@ -69,6 +72,7 @@ function Index() {
   );
   const [copied, setCopied] = useState(false);
   const [showFavs, setShowFavs] = useState(false);
+  const [showLockPicker, setShowLockPicker] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [drafts, setDrafts] = useState<
     Record<string, { label: string; value: string; emoji: string }>
@@ -454,7 +458,14 @@ function Index() {
             className="group flex flex-1 items-center justify-center gap-2 rounded-xl border border-primary/40 bg-primary/10 py-3 text-sm font-semibold text-primary transition hover:border-primary/70 hover:bg-primary/15 active:scale-[0.98]"
           >
             <Wand2 className="h-4 w-4 transition group-hover:rotate-12" />
-            Surprise Me
+            Remix
+          </button>
+          <button
+            onClick={() => setShowLockPicker(true)}
+            className="group flex flex-1 items-center justify-center gap-2 rounded-xl border border-neon/40 bg-neon/10 py-3 text-sm font-semibold text-neon transition hover:border-neon/70 hover:bg-neon/15 active:scale-[0.98]"
+          >
+            <Dices className="h-4 w-4 transition group-hover:rotate-12" />
+            Reroll
           </button>
           <button
             onClick={() => {
@@ -900,6 +911,87 @@ function Index() {
                   ))}
                 </ul>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showLockPicker && (
+        <div
+          className="fixed inset-0 z-50 animate-fade-in"
+          onClick={() => setShowLockPicker(false)}
+        >
+          <div className="absolute inset-0 bg-background/70 backdrop-blur-sm" />
+          <div
+            className="absolute inset-x-0 bottom-0 flex max-h-[80vh] flex-col rounded-t-3xl border-t border-border bg-card animate-slide-in-right"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex shrink-0 justify-center pb-2 pt-3">
+              <span className="h-1 w-10 rounded-full bg-border" />
+            </div>
+            <div className="mb-1 flex shrink-0 items-start justify-between gap-3 px-4">
+              <div>
+                <h3 className="text-lg font-semibold">Lock & Reroll</h3>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Locked categories keep their current pick — everything else gets rerolled.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowLockPicker(false)}
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-border"
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="overflow-y-auto px-4 py-3">
+              <ul className="space-y-1.5 pb-2">
+                {b.orderedCategories.map((cat) => {
+                  const isLocked = !!b.lockedCategories[cat.id];
+                  const catIcon = resolveCategoryIcon(cat);
+                  return (
+                    <li key={cat.id}>
+                      <button
+                        onClick={() => b.toggleLock(cat.id)}
+                        className={cn(
+                          "flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-left text-sm font-medium transition active:scale-[0.99]",
+                          isLocked
+                            ? "border-primary/50 bg-primary/10 text-primary"
+                            : "border-border bg-background/40 text-foreground/80 hover:border-neon/40",
+                        )}
+                      >
+                        <span className="flex items-center gap-2">
+                          <span className="grid h-5 w-5 shrink-0 place-items-center" aria-hidden>
+                            {catIcon ? (
+                              <img src={catIcon} alt="" className="h-[15px] w-[15px] opacity-90" />
+                            ) : (
+                              <span className="text-sm">{cat.emoji}</span>
+                            )}
+                          </span>
+                          {cat.name}
+                        </span>
+                        {isLocked ? (
+                          <Lock className="h-4 w-4" />
+                        ) : (
+                          <Unlock className="h-4 w-4 opacity-50" />
+                        )}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+            <div className="shrink-0 border-t border-border px-4 py-3">
+              <button
+                onClick={() => {
+                  b.randomizeUnlocked();
+                  setShowLockPicker(false);
+                }}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-neon/50 bg-neon/15 py-3 text-sm font-semibold text-neon transition hover:border-neon/70 hover:bg-neon/25 active:scale-[0.98]"
+              >
+                <Dices className="h-4 w-4" />
+                Reroll Unlocked
+              </button>
             </div>
           </div>
         </div>
