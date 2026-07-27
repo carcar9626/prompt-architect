@@ -31,6 +31,40 @@ const CUSTOM_CATEGORIES_KEY = "promptdeck:customCategories";
 const REMOVED_CATEGORIES_KEY = "promptdeck:removedCategories";
 const RECENT_PER_CATEGORY = 4;
 
+// One-time id migration for the 2026-07-27 category-schema change: a few
+// built-in category ids were renamed to match the personal-catalog schema
+// (style -> aesthetic, camera -> composition, setting -> scene-setting,
+// quality -> misc). Without this, anyone with existing localStorage state
+// keyed by the old ids — selections, custom tokens, removed presets,
+// recently-used history, category order — would see that data silently
+// vanish, since nothing renders under the old id anymore. "mood" has no
+// equivalent in the new schema, so it isn't remapped; its old data is
+// simply orphaned (harmless, just unused).
+const CATEGORY_ID_MIGRATIONS: Record<string, string> = {
+  style: "aesthetic",
+  camera: "composition",
+  setting: "scene-setting",
+  quality: "misc",
+};
+
+function migrateCategoryKeyedRecord<T>(record: Record<string, T>): Record<string, T> {
+  let changed = false;
+  const next: Record<string, T> = { ...record };
+  for (const [oldId, newId] of Object.entries(CATEGORY_ID_MIGRATIONS)) {
+    if (oldId in next && !(newId in next)) {
+      next[newId] = next[oldId];
+      delete next[oldId];
+      changed = true;
+    }
+  }
+  return changed ? next : record;
+}
+
+function migrateCategoryIdList(ids: string[]): string[] {
+  const mapped = ids.map((id) => CATEGORY_ID_MIGRATIONS[id] ?? id);
+  return Array.from(new Set(mapped));
+}
+
 const haptic = (ms = 8) => {
   if (typeof navigator !== "undefined" && "vibrate" in navigator) {
     try {
@@ -92,15 +126,20 @@ export function usePromptBuilder() {
   useEffect(() => {
     try {
       const s = localStorage.getItem(STORAGE_KEY);
-      if (s) setSelections(JSON.parse(s));
+      if (s) setSelections(migrateCategoryKeyedRecord(JSON.parse(s)));
       const f = localStorage.getItem(FAV_KEY);
-      if (f) setFavorites(JSON.parse(f));
+      if (f) {
+        const favs: Favorite[] = JSON.parse(f);
+        setFavorites(
+          favs.map((fav) => ({ ...fav, selections: migrateCategoryKeyedRecord(fav.selections) })),
+        );
+      }
       const c = localStorage.getItem(CUSTOM_KEY);
-      if (c) setCustom(JSON.parse(c));
+      if (c) setCustom(migrateCategoryKeyedRecord(JSON.parse(c)));
       const r = localStorage.getItem(REMOVED_KEY);
-      if (r) setRemoved(JSON.parse(r));
+      if (r) setRemoved(migrateCategoryKeyedRecord(JSON.parse(r)));
       const rc = localStorage.getItem(RECENT_KEY);
-      if (rc) setRecent(JSON.parse(rc));
+      if (rc) setRecent(migrateCategoryKeyedRecord(JSON.parse(rc)));
 
       let loadedCustomCategories: Category[] = [];
       const cc = localStorage.getItem(CUSTOM_CATEGORIES_KEY);
@@ -111,13 +150,13 @@ export function usePromptBuilder() {
       let loadedRemovedCategoryIds: string[] = [];
       const rcat = localStorage.getItem(REMOVED_CATEGORIES_KEY);
       if (rcat) {
-        loadedRemovedCategoryIds = JSON.parse(rcat);
+        loadedRemovedCategoryIds = migrateCategoryIdList(JSON.parse(rcat));
         setRemovedCategoryIds(loadedRemovedCategoryIds);
       }
 
       const o = localStorage.getItem(ORDER_KEY);
       if (o) {
-        const parsed: string[] = JSON.parse(o);
+        const parsed: string[] = migrateCategoryIdList(JSON.parse(o));
         const removedSet = new Set(loadedRemovedCategoryIds);
         const allIds = [
           ...CATEGORIES.filter((cat) => !removedSet.has(cat.id)).map((cat) => cat.id),
