@@ -24,7 +24,7 @@ import {
   Maximize2,
   Minimize2,
 } from "lucide-react";
-import { CATEGORIES, type Token } from "@/lib/prompt-data";
+import { CATEGORIES, resolveCategoryIcon, type Token } from "@/lib/prompt-data";
 import { usePromptBuilder } from "@/hooks/use-prompt-builder";
 import { cn } from "@/lib/utils";
 
@@ -466,6 +466,7 @@ function Index() {
           const removedCount = (b.removed[cat.id] ?? []).length;
           const draft = drafts[cat.id] ?? { label: "", value: "", emoji: "" };
           const isDragging = draggingId === cat.id;
+          const catIcon = resolveCategoryIcon(cat);
 
           return (
             <section
@@ -503,8 +504,8 @@ function Index() {
                 className="flex w-full items-center gap-3 px-4 py-4 pr-8 text-left"
               >
                 <div className="grid h-11 w-11 place-items-center rounded-2xl border border-border bg-background/60 text-xl">
-                  {cat.icon ? (
-                    <img src={cat.icon} alt="" className="h-5 w-5" />
+                  {catIcon ? (
+                    <img src={catIcon} alt="" className="h-[18px] w-[18px] opacity-90" />
                   ) : (
                     <span>{cat.emoji}</span>
                   )}

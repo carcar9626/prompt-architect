@@ -128,3 +128,36 @@ export const CATEGORIES: Category[] = [
     ],
   },
 ];
+
+// Fixed default icons, keyed by category id — covers both the built-in
+// CATEGORIES above and the personal category ids used by imported
+// customCategories backups (see use-prompt-builder.ts). Not user-editable
+// yet; a category's own `icon` field (once that exists in the UI) will take
+// precedence over this map.
+export const DEFAULT_CATEGORY_ICONS: Record<string, string> = {
+  subject: "/icons/subject.svg",
+  outfit: "/icons/outfit.svg",
+  "scene-setting": "/icons/setting.svg",
+  composition: "/icons/composition.svg",
+  "pose-action": "/icons/pose.svg",
+  "spatial-addons": "/icons/spacial_addon.svg",
+  lighting: "/icons/lighting.svg",
+  aesthetic: "/icons/aesthetic.svg",
+  misc: "/icons/misc.svg",
+  custom: "/icons/custom.svg",
+};
+
+// Fallback for any category id outside the sets above — e.g. a category a
+// user creates by hand once that's possible.
+export const NEW_CATEGORY_ICON = "/icons/new.svg";
+
+const KNOWN_CATEGORY_IDS = new Set([
+  ...CATEGORIES.map((c) => c.id),
+  ...Object.keys(DEFAULT_CATEGORY_ICONS),
+]);
+
+export function resolveCategoryIcon(category: Category): string | undefined {
+  if (category.icon) return category.icon;
+  if (DEFAULT_CATEGORY_ICONS[category.id]) return DEFAULT_CATEGORY_ICONS[category.id];
+  return KNOWN_CATEGORY_IDS.has(category.id) ? undefined : NEW_CATEGORY_ICON;
+}

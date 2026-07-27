@@ -20,6 +20,9 @@ dist-ssr
 .wrangler/
 .dev.vars
 
+# Discarded icon candidates — kept locally for reference, not shipped
+public/icons/temp/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
