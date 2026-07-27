@@ -151,13 +151,18 @@ export const DEFAULT_CATEGORY_ICONS: Record<string, string> = {
 // user creates by hand once that's possible.
 export const NEW_CATEGORY_ICON = "/icons/new.svg";
 
-const KNOWN_CATEGORY_IDS = new Set([
-  ...CATEGORIES.map((c) => c.id),
-  ...Object.keys(DEFAULT_CATEGORY_ICONS),
-]);
-
+// The built-in sample categories always show their own `emoji`, never a
+// DEFAULT_CATEGORY_ICONS entry — even though a couple of their ids ("subject",
+// "lighting") collide with ids from the personal catalog below. Those ids are
+// shared on purpose (an imported custom category with the same id fully
+// replaces its built-in counterpart, see use-prompt-builder.ts), but the
+// built-in object itself — returned by `CATEGORIES.find(...)`, e.g. when
+// nothing has been imported — must stay a fixed sample default regardless of
+// what personal-catalog icons exist. Reference identity against CATEGORIES is
+// what tells the two apart, since a same-id custom category is a distinct
+// object.
 export function resolveCategoryIcon(category: Category): string | undefined {
   if (category.icon) return category.icon;
-  if (DEFAULT_CATEGORY_ICONS[category.id]) return DEFAULT_CATEGORY_ICONS[category.id];
-  return KNOWN_CATEGORY_IDS.has(category.id) ? undefined : NEW_CATEGORY_ICON;
+  if (CATEGORIES.includes(category)) return undefined;
+  return DEFAULT_CATEGORY_ICONS[category.id] ?? NEW_CATEGORY_ICON;
 }
