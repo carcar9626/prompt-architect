@@ -21,8 +21,10 @@ import {
   GripVertical,
   Download,
   Upload,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
-import { CATEGORIES } from "@/lib/prompt-data";
+import { CATEGORIES, type Token } from "@/lib/prompt-data";
 import { usePromptBuilder } from "@/hooks/use-prompt-builder";
 import { cn } from "@/lib/utils";
 
@@ -45,6 +47,16 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
+const PROMPT_MIN_H = 56;
+const PROMPT_MAX_H = 420;
+const PROMPT_DEFAULT_H = 96;
+const PROMPT_EXPANDED_H = 280;
+const PROMPT_SNAP_THRESHOLD = (PROMPT_DEFAULT_H + PROMPT_EXPANDED_H) / 2;
+
+const DRAWER_MIN_H = 220;
+const DRAWER_DEFAULT_VH = 0.8;
+const DRAWER_EXPANDED_VH = 0.95;
+
 function Index() {
   const b = usePromptBuilder();
   const [open, setOpen] = useState<Record<string, boolean>>(() =>
@@ -59,10 +71,15 @@ function Index() {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [importError, setImportError] = useState(false);
   const [pendingRemoval, setPendingRemoval] = useState<Record<string, string[]>>({});
+  const [promptHeight, setPromptHeight] = useState(PROMPT_DEFAULT_H);
+  const [drawerHeight, setDrawerHeight] = useState<number | null>(null);
+  const [recentSnapshots, setRecentSnapshots] = useState<Record<string, Token[]>>({});
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pressStart = useRef<{ x: number; y: number } | null>(null);
   const justDragged = useRef(false);
   const importInputRef = useRef<HTMLInputElement | null>(null);
+  const promptDrag = useRef<{ y: number; height: number } | null>(null);
+  const drawerDrag = useRef<{ y: number; height: number } | null>(null);
 
   useEffect(() => {
     if (!copied) return;
@@ -229,8 +246,62 @@ function Index() {
       justDragged.current = false;
       return;
     }
-    setOpen((o) => ({ ...o, [catId]: !o[catId] }));
+    const willOpen = !open[catId];
+    // Freeze the Recently Used row's contents/order for the duration this
+    // category stays open — re-snapshotting on every pick made the pills
+    // reshuffle mid-browse, which was hard to track visually. It only
+    // re-reads the live order the next time the category is opened.
+    if (willOpen) {
+      setRecentSnapshots((prev) => ({ ...prev, [catId]: b.recentTokensFor(catId) }));
+    }
+    setOpen((o) => ({ ...o, [catId]: willOpen }));
   };
+
+  const onPromptHandlePointerDown = (e: ReactPointerEvent) => {
+    promptDrag.current = { y: e.clientY, height: promptHeight };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+  const onPromptHandlePointerMove = (e: ReactPointerEvent) => {
+    if (!promptDrag.current) return;
+    const dy = promptDrag.current.y - e.clientY;
+    setPromptHeight(Math.min(PROMPT_MAX_H, Math.max(PROMPT_MIN_H, promptDrag.current.height + dy)));
+  };
+  const onPromptHandlePointerUp = () => {
+    promptDrag.current = null;
+  };
+  const togglePromptExpanded = () => {
+    setPromptHeight((h) => (h < PROMPT_SNAP_THRESHOLD ? PROMPT_EXPANDED_H : PROMPT_DEFAULT_H));
+  };
+  const isPromptExpanded = promptHeight >= PROMPT_SNAP_THRESHOLD;
+
+  const onDrawerHandlePointerDown = (e: ReactPointerEvent) => {
+    drawerDrag.current = {
+      y: e.clientY,
+      height: drawerHeight ?? window.innerHeight * DRAWER_DEFAULT_VH,
+    };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+  const onDrawerHandlePointerMove = (e: ReactPointerEvent) => {
+    if (!drawerDrag.current) return;
+    const dy = drawerDrag.current.y - e.clientY;
+    const max = window.innerHeight * DRAWER_EXPANDED_VH;
+    setDrawerHeight(Math.min(max, Math.max(DRAWER_MIN_H, drawerDrag.current.height + dy)));
+  };
+  const onDrawerHandlePointerUp = () => {
+    drawerDrag.current = null;
+  };
+  const toggleDrawerExpanded = () => {
+    const current = drawerHeight ?? window.innerHeight * DRAWER_DEFAULT_VH;
+    const expandedTarget = window.innerHeight * DRAWER_EXPANDED_VH;
+    const defaultTarget = window.innerHeight * DRAWER_DEFAULT_VH;
+    setDrawerHeight(
+      current < (expandedTarget + defaultTarget) / 2 ? expandedTarget : defaultTarget,
+    );
+  };
+  const isDrawerExpanded =
+    typeof window !== "undefined" &&
+    (drawerHeight ?? window.innerHeight * DRAWER_DEFAULT_VH) >
+      (window.innerHeight * (DRAWER_DEFAULT_VH + DRAWER_EXPANDED_VH)) / 2;
 
   return (
     <div className="min-h-screen pb-56">
@@ -340,7 +411,7 @@ function Index() {
           const selectedIds = b.selections[cat.id] ?? [];
           const isOpen = open[cat.id] || editMode;
           const tokens = b.tokensFor(cat.id);
-          const recentTokens = b.recentTokensFor(cat.id);
+          const recentTokens = recentSnapshots[cat.id] ?? b.recentTokensFor(cat.id);
           const removedCount = (b.removed[cat.id] ?? []).length;
           const draft = drafts[cat.id] ?? { label: "", value: "", emoji: "" };
           const isDragging = draggingId === cat.id;
@@ -562,20 +633,45 @@ function Index() {
 
       {/* Sticky accumulator */}
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border/70 bg-background/85 backdrop-blur-xl">
-        <div className="mx-auto max-w-3xl px-4 py-3">
-          <div className="mb-2 flex items-center justify-between">
+        <div
+          onPointerDown={onPromptHandlePointerDown}
+          onPointerMove={onPromptHandlePointerMove}
+          onPointerUp={onPromptHandlePointerUp}
+          onPointerCancel={onPromptHandlePointerUp}
+          className="flex touch-none select-none justify-center py-1.5 cursor-ns-resize"
+        >
+          <span className="h-1 w-10 rounded-full bg-border" />
+        </div>
+        <div className="mx-auto max-w-3xl px-4 pb-3">
+          <div className="mb-1.5 flex items-center justify-between">
             <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
               Live Prompt
             </span>
-            <button
-              onClick={b.saveFavorite}
-              disabled={!b.prompt}
-              className="flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition hover:border-primary/50 hover:text-primary disabled:opacity-40"
-            >
-              <Heart className="h-3 w-3" /> Save
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={togglePromptExpanded}
+                aria-label={isPromptExpanded ? "Collapse live prompt" : "Expand live prompt"}
+                className="grid h-6 w-6 place-items-center rounded-md text-muted-foreground transition hover:text-primary"
+              >
+                {isPromptExpanded ? (
+                  <Minimize2 className="h-3.5 w-3.5" />
+                ) : (
+                  <Maximize2 className="h-3.5 w-3.5" />
+                )}
+              </button>
+              <button
+                onClick={b.saveFavorite}
+                disabled={!b.prompt}
+                className="flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition hover:border-primary/50 hover:text-primary disabled:opacity-40"
+              >
+                <Heart className="h-3 w-3" /> Save
+              </button>
+            </div>
           </div>
-          <div className="max-h-24 overflow-y-auto rounded-2xl border border-border bg-card/60 p-3 font-mono text-[13px] leading-relaxed">
+          <div
+            style={{ height: promptHeight }}
+            className="overflow-y-auto rounded-2xl border border-border bg-card/60 p-3 font-mono text-[13px] leading-relaxed"
+          >
             {b.prompt ? (
               <span className="text-foreground">{b.prompt}</span>
             ) : (
@@ -609,95 +705,119 @@ function Index() {
         <div className="fixed inset-0 z-50 animate-fade-in" onClick={() => setShowFavs(false)}>
           <div className="absolute inset-0 bg-background/70 backdrop-blur-sm" />
           <div
-            className="absolute inset-x-0 bottom-0 max-h-[80vh] overflow-y-auto rounded-t-3xl border-t border-border bg-card p-4 animate-slide-in-right"
+            style={{ height: drawerHeight ?? "80vh" }}
+            className="absolute inset-x-0 bottom-0 flex flex-col rounded-t-3xl border-t border-border bg-card animate-slide-in-right"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-border" />
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Saved Prompts</h3>
-              <button
-                onClick={() => setShowFavs(false)}
-                className="grid h-9 w-9 place-items-center rounded-xl border border-border"
-              >
-                <X className="h-4 w-4" />
-              </button>
+            <div
+              onPointerDown={onDrawerHandlePointerDown}
+              onPointerMove={onDrawerHandlePointerMove}
+              onPointerUp={onDrawerHandlePointerUp}
+              onPointerCancel={onDrawerHandlePointerUp}
+              className="flex shrink-0 touch-none select-none justify-center pb-2 pt-3 cursor-ns-resize"
+            >
+              <span className="h-1 w-10 rounded-full bg-border" />
             </div>
-            <div className="mb-4 rounded-2xl border border-border bg-background/40 p-3">
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                Backup & Restore
-              </p>
-              <div className="flex gap-2">
+            <div className="mb-4 flex shrink-0 items-center justify-between px-4">
+              <h3 className="text-lg font-semibold">Saved Prompts</h3>
+              <div className="flex items-center gap-1.5">
                 <button
-                  onClick={handleExport}
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border bg-card/60 py-2 text-xs font-medium text-foreground/80 transition hover:border-primary/50 hover:text-primary"
+                  onClick={toggleDrawerExpanded}
+                  aria-label={isDrawerExpanded ? "Collapse drawer" : "Expand drawer"}
+                  className="grid h-9 w-9 place-items-center rounded-xl border border-border text-muted-foreground transition hover:border-primary/60 hover:text-primary"
                 >
-                  <Download className="h-3.5 w-3.5" />
-                  Export
+                  {isDrawerExpanded ? (
+                    <Minimize2 className="h-4 w-4" />
+                  ) : (
+                    <Maximize2 className="h-4 w-4" />
+                  )}
                 </button>
                 <button
-                  onClick={() => importInputRef.current?.click()}
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border bg-card/60 py-2 text-xs font-medium text-foreground/80 transition hover:border-primary/50 hover:text-primary"
+                  onClick={() => setShowFavs(false)}
+                  className="grid h-9 w-9 place-items-center rounded-xl border border-border"
                 >
-                  <Upload className="h-3.5 w-3.5" />
-                  Import
+                  <X className="h-4 w-4" />
                 </button>
-                <input
-                  ref={importInputRef}
-                  type="file"
-                  accept="application/json,.json"
-                  className="hidden"
-                  onChange={handleImportFile}
-                />
               </div>
-              <p className="mt-2 text-[11px] text-muted-foreground">
-                Export saves all your tokens, order, and favorites as a file you can move to another
-                device. Import replaces your current data.
-              </p>
-              {importError && (
-                <p className="mt-2 text-[11px] font-medium text-destructive">
-                  Import failed — that file isn't a valid PromptDeck backup.
+            </div>
+            <div className="overflow-y-auto px-4 pb-4">
+              <div className="mb-4 rounded-2xl border border-border bg-background/40 p-3">
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                  Backup & Restore
                 </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleExport}
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border bg-card/60 py-2 text-xs font-medium text-foreground/80 transition hover:border-primary/50 hover:text-primary"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Export
+                  </button>
+                  <button
+                    onClick={() => importInputRef.current?.click()}
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border bg-card/60 py-2 text-xs font-medium text-foreground/80 transition hover:border-primary/50 hover:text-primary"
+                  >
+                    <Upload className="h-3.5 w-3.5" />
+                    Import
+                  </button>
+                  <input
+                    ref={importInputRef}
+                    type="file"
+                    accept="application/json,.json"
+                    className="hidden"
+                    onChange={handleImportFile}
+                  />
+                </div>
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  Export saves all your tokens, order, and favorites as a file you can move to
+                  another device. Import replaces your current data.
+                </p>
+                {importError && (
+                  <p className="mt-2 text-[11px] font-medium text-destructive">
+                    Import failed — that file isn't a valid PromptDeck backup.
+                  </p>
+                )}
+              </div>
+
+              {b.favorites.length === 0 ? (
+                <div className="py-12 text-center text-sm text-muted-foreground">
+                  <Heart className="mx-auto mb-3 h-8 w-8 opacity-40" />
+                  No saved prompts yet.
+                  <br />
+                  Tap Save on the bar below to bookmark a look.
+                </div>
+              ) : (
+                <ul className="space-y-2 pb-6">
+                  {b.favorites.map((f) => (
+                    <li
+                      key={f.id}
+                      className="group rounded-2xl border border-border bg-background/50 p-3"
+                    >
+                      <p className="mb-2 font-mono text-xs leading-relaxed text-foreground/90">
+                        {f.prompt}
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            b.loadFavorite(f);
+                            setShowFavs(false);
+                          }}
+                          className="flex-1 rounded-lg bg-primary/15 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/25"
+                        >
+                          Load
+                        </button>
+                        <button
+                          onClick={() => b.removeFavorite(f.id)}
+                          className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground transition hover:border-destructive/50 hover:text-destructive"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
               )}
             </div>
-
-            {b.favorites.length === 0 ? (
-              <div className="py-12 text-center text-sm text-muted-foreground">
-                <Heart className="mx-auto mb-3 h-8 w-8 opacity-40" />
-                No saved prompts yet.
-                <br />
-                Tap Save on the bar below to bookmark a look.
-              </div>
-            ) : (
-              <ul className="space-y-2 pb-6">
-                {b.favorites.map((f) => (
-                  <li
-                    key={f.id}
-                    className="group rounded-2xl border border-border bg-background/50 p-3"
-                  >
-                    <p className="mb-2 font-mono text-xs leading-relaxed text-foreground/90">
-                      {f.prompt}
-                    </p>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => {
-                          b.loadFavorite(f);
-                          setShowFavs(false);
-                        }}
-                        className="flex-1 rounded-lg bg-primary/15 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/25"
-                      >
-                        Load
-                      </button>
-                      <button
-                        onClick={() => b.removeFavorite(f.id)}
-                        className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground transition hover:border-destructive/50 hover:text-destructive"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
           </div>
         </div>
       )}
